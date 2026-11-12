@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useScroll } from 'motion/react';
 import { ArrowUpRight, Sparkle } from '@phosphor-icons/react';
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { createOrbitalCreatures } from './OrbitalCreatures.js';
 import './scroll-journey.css';
 
 const chapters = [
@@ -16,65 +18,6 @@ const noise = `
 float hash(vec3 p){p=fract(p*.3183099+vec3(.1,.2,.3));p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
 float noise3(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.-2.*f);return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);}
 float fbm(vec3 p){float a=.5,v=0.;for(int i=0;i<5;i++){v+=a*noise3(p);p=p*2.07+vec3(4.2,1.7,8.4);a*=.49;}return v;}`;
-
-// Photographic-style transparent portraits travel through the same 3D space as
-// the planet. They stay face-on while depth testing lets the planet occlude them.
-function floatingReptilePortraits({ material, cleanups, onReady }) {
-  const group = new THREE.Group();
-  const portraits = [], maps = [];
-  let ready = false, disposed = false, cellAspect = 1.5;
-  const atlas = new THREE.TextureLoader().load('/images/orbit-reptiles-atlas.webp', texture => {
-    if(disposed) return;
-    cellAspect=texture.image.width/texture.image.height;
-    ready=true;onReady?.();
-  });
-  atlas.colorSpace=THREE.SRGBColorSpace;atlas.anisotropy=4;
-  atlas.minFilter=THREE.LinearMipmapLinearFilter;atlas.magFilter=THREE.LinearFilter;
-  maps.push(atlas);
-  const glowCanvas=document.createElement('canvas');glowCanvas.width=glowCanvas.height=96;
-  const ctx=glowCanvas.getContext('2d'),glowGradient=ctx.createRadialGradient(48,48,0,48,48,48);
-  glowGradient.addColorStop(0,'rgba(197,147,255,.36)');glowGradient.addColorStop(.35,'rgba(163,102,255,.15)');glowGradient.addColorStop(1,'rgba(125,88,255,0)');
-  ctx.fillStyle=glowGradient;ctx.fillRect(0,0,96,96);
-  const glowMap=new THREE.CanvasTexture(glowCanvas);glowMap.colorSpace=THREE.SRGBColorSpace;maps.push(glowMap);
-  // Atlas order: top-left, top-right, bottom-left, bottom-right.
-  const paths=[
-    {cell:[0,1],phase:.28,radius:2.05,tilt:.76,turn:.08,size:1.32,speed:.10,roll:-.12},
-    {cell:[1,1],phase:1.90,radius:2.08,tilt:-.64,turn:-.16,size:1.29,speed:.091,roll:.10},
-    {cell:[0,0],phase:3.55,radius:2.14,tilt:.38,turn:.21,size:1.34,speed:.084,roll:-.08},
-    {cell:[1,0],phase:5.25,radius:2.04,tilt:.67,turn:-.12,size:1.28,speed:.095,roll:.13},
-  ];
-  paths.forEach((path,index)=>{
-    const map=atlas.clone();map.offset.set(path.cell[0]*.5+.003,path.cell[1]*.5+.003);map.repeat.set(.494,.494);map.needsUpdate=true;maps.push(map);
-    const surface=material(new THREE.SpriteMaterial({map,transparent:true,depthTest:true,depthWrite:false,alphaTest:.018,color:'#fff7ff',toneMapped:false}));
-    const portrait=new THREE.Sprite(surface);portrait.renderOrder=3;portrait.name=`floating-reptile-${index+1}`;
-    const glowMat=material(new THREE.SpriteMaterial({map:glowMap,transparent:true,depthTest:true,depthWrite:false,blending:THREE.AdditiveBlending,color:'#d9b9ff',toneMapped:false}));
-    const glow=new THREE.Sprite(glowMat);glow.renderOrder=2;
-    group.add(glow,portrait);portraits.push({path,portrait,glow,index});
-  });
-  cleanups.push(()=>{disposed=true;maps.forEach(map=>map.dispose());});
-  return {group,update(time,progress,resonance){
-    group.visible=ready;
-    portraits.forEach(({path,portrait,glow,index})=>{
-      const angle=path.phase+time*path.speed+progress*.95;
-      const x=Math.cos(angle)*path.radius*.91;
-      const y=-Math.sin(angle)*path.radius*Math.sin(path.tilt);
-      const z=Math.sin(angle)*path.radius*Math.cos(path.tilt);
-      const turnedX=x*Math.cos(path.turn)-y*Math.sin(path.turn);
-      const turnedY=x*Math.sin(path.turn)+y*Math.cos(path.turn);
-      const bob=Math.sin(time*.77+index*1.7)*.105+Math.sin(time*.34+index)*.025;
-      portrait.position.set(turnedX+.12,turnedY+bob,z);
-      const breathe=1+Math.sin(time*1.42+index*.8)*.014;
-      const size=path.size*breathe*(1+resonance*.04);
-      portrait.scale.set(size,size/cellAspect,1);
-      portrait.material.rotation=path.roll+Math.sin(time*.46+index*2.1)*.075+Math.sin(angle)*.055;
-      // Each animal gently arrives at a different point in the scroll journey.
-      const arrival=THREE.MathUtils.smoothstep(progress+.13-index*.025,0,.15);
-      portrait.material.opacity=arrival;
-      glow.position.copy(portrait.position);glow.position.z-=.045;
-      glow.scale.set(size*1.15,size*.93,1);glow.material.opacity=arrival*(.35+resonance*.45);
-    });
-  }};
-}
 
 function PortalSculpture({ progress, paused }) {
   const hostRef = useRef(null);
@@ -111,6 +54,12 @@ function PortalSculpture({ progress, paused }) {
       renderer.domElement.setAttribute('aria-hidden', 'true');
       host.appendChild(renderer.domElement);
       const scene = new THREE.Scene();
+      const environmentScene = new RoomEnvironment();
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      const environment = pmrem.fromScene(environmentScene, .05);
+      scene.environment = environment.texture;
+      environmentScene.dispose(); pmrem.dispose();
+      cleanups.push(() => environment.dispose());
       const camera = new THREE.PerspectiveCamera(40, 1, .1, 100);
       camera.position.set(0, .15, 8.9);
       const rig = new THREE.Group(); scene.add(rig);
@@ -188,12 +137,20 @@ function PortalSculpture({ progress, paused }) {
         transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
       }));
       rings.add(new THREE.Points(dustGeometry, dustMaterial));
-      scene.add(new THREE.AmbientLight('#8e72d8', .7));
-      const key = new THREE.DirectionalLight('#dfd8ff', 3);key.position.set(-4,6,5);scene.add(key);
-      const rim = new THREE.DirectionalLight('#de75f7', 2.7);rim.position.set(4,-3,1);scene.add(rim);
-      const reptiles=floatingReptilePortraits({material,cleanups,onReady:()=>{host.dataset.orbitCreatures='4';trigger.current?.();}});rig.add(reptiles.group);
+      scene.add(new THREE.HemisphereLight('#f9f2ff', '#372654', .58));
+      const key = new THREE.DirectionalLight('#f3eaff', 1.65);key.position.set(-4,6,5);scene.add(key);
+      const rim = new THREE.DirectionalLight('#ba8cf7', 1.5);rim.position.set(4,-3,1);scene.add(rim);
+      const reptiles = createOrbitalCreatures({
+        onReady: ({ count, id, animated }) => {
+          host.dataset.orbitCreatures = String(count);
+          host.dataset[id] = animated ? 'animated-mesh' : 'textured-mesh';
+          trigger.current?.();
+        },
+        onError: id => { host.dataset.orbitAssetError = id; },
+      });
+      rig.add(reptiles.group); cleanups.push(() => reptiles.dispose());
       const crystals = [];
-      const crystalMaterial = material(new THREE.MeshPhysicalMaterial({ color: '#bfa5eb', metalness: .72, roughness: .2, clearcoat: .85, flatShading: true }));
+      const crystalMaterial = material(new THREE.MeshPhysicalMaterial({ color: '#bfa5eb', metalness: .72, roughness: .2, clearcoat: .85, flatShading: true, envMapIntensity: .16 }));
       for (let i = 0; i < 7; i++) {
         const crystal = new THREE.Mesh(geometry(new THREE.IcosahedronGeometry(.055 + random()*.075, 0)), crystalMaterial);
         crystal.scale.set(.65,1.6,.7);crystal.rotation.set(random()*3,random()*3,random()*3);

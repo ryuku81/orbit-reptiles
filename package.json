@@ -1,6 +1,25 @@
 {
-  "name":"orbit-reptiles", "version":"1.0.0", "private":true, "type":"module",
-  "scripts":{"dev":"vite --host 0.0.0.0", "build":"vite build", "preview":"vite preview --host 0.0.0.0"},
-  "dependencies":{"react":"^19.1.0","react-dom":"^19.1.0","three":"^0.180.0","motion":"^12.23.0","@phosphor-icons/react":"^2.1.10","@fontsource-variable/space-grotesk":"^5.2.8"},
-  "devDependencies":{"vite":"^7.1.0","@vitejs/plugin-react":"^5.0.0","playwright":"^1.55.0"}
+  "name": "orbit-reptiles",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "@fontsource-variable/space-grotesk": "^5.2.8",
+    "@phosphor-icons/react": "^2.1.10",
+    "lenis": "^1.3.27",
+    "motion": "^12.23.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.0.0",
+    "playwright": "^1.55.0",
+    "vite": "^7.1.0"
+  }
 }

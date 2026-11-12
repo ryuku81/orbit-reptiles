@@ -10,3 +10,7 @@
 .specimen-scene>.official-model-viewer{position:absolute;inset:0}
 @keyframes official-model-load{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.viewer-loading-orbit{animation:none}}
+.official-viewer-zoom{position:absolute;right:12px;bottom:58px;z-index:2;display:flex;flex-direction:column;overflow:hidden;border:1px solid #d8b8ef55;border-radius:5px;background:#160d25d9;backdrop-filter:blur(8px)}
+.official-viewer-zoom button{width:32px;height:31px;display:grid;place-items:center;padding:0;border:0;background:transparent;color:#f4e8ff;font-size:18px;line-height:1;font-family:inherit;cursor:pointer;touch-action:manipulation}
+.official-viewer-zoom button+button{border-top:1px solid #d8b8ef33}.official-viewer-zoom button:hover{background:#b87de52b}.official-viewer-zoom button:focus-visible{outline:2px solid #e5b7ff;outline-offset:-3px}
+@media(pointer:coarse){.official-viewer-zoom button{width:38px;height:38px}}

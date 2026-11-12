@@ -21,15 +21,16 @@ export default function SparkleEffects({ paused = false }) {
     const context = canvas?.getContext('2d', { alpha: true });
     if (!context) return undefined;
     const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-    let width = 1, height = 1, mobile = false, frame = 0, previous = 0, clock = 0;
-    let disposed = false, lastPointerTime = 0, nextMeteor = 2.5, warp = null;
+    let width = 1, height = 1, mobile = false, frame = 0, idleTimer = 0, previous = 0, clock = performance.now() / 1000;
+    let disposed = false, lastPointerTime = 0, nextMeteor = clock + 2.5, warp = null;
+    let wake = () => {};
     let scrollY = window.scrollY, lastScrollTime = performance.now(), scrollSpeed = 0, flightEnergy = 0;
     let pointer = null;
     const particles = [], rings = [], meteors = [], scrollScenes = [];
+    const glintSprites = new Map(), raySprites = new Map();
     const scrollSections = [
       { id: 'reptile-lab', effect: 'orbital-gateway', top: Infinity, fired: -100 },
       { id: 'collection', effect: 'meteor-shower', top: Infinity, fired: -100 },
-      { id: 'universe', effect: 'serpent-constellation', top: Infinity, fired: -100 },
       { id: 'supernova', effect: 'aurora-ribbons', top: Infinity, fired: -100 },
     ];
     // Repeatable ray geometry avoids reallocating a large effect on every warp.
@@ -40,6 +41,7 @@ export default function SparkleEffects({ paused = false }) {
     const clear = () => {
       particles.length = 0; rings.length = 0; meteors.length = 0; scrollScenes.length = 0;
       warp = null; pointer = null; scrollSpeed = 0; flightEnergy = 0;
+      nextMeteor = performance.now() / 1000 + 2.5;
       context.clearRect(0, 0, width, height);
     };
     const isTextInput = target => target instanceof Element && !!target.closest('input, textarea, select, [contenteditable="true"]');
@@ -63,6 +65,7 @@ export default function SparkleEffects({ paused = false }) {
       for (let i = 0; i < count; i++) sparkle(cx, cy, true, strength);
       if (rings.length >= 8) rings.shift();
       rings.push({ x: cx, y: cy, age: 0, power: strength });
+      wake();
     };
     const onBurst = event => {
       const detail = event.detail || {};
@@ -72,7 +75,7 @@ export default function SparkleEffects({ paused = false }) {
       if (!enabled()) return;
       // Durations are milliseconds. A single smooth crescendo avoids strobing.
       const value = event.detail?.duration;
-      warp = { start: clock, duration: clamp(Number.isFinite(value) ? value : 2200, 1000, 5000) / 1000, x: width * .53, y: height * .46 };
+      warp = { start: performance.now() / 1000, duration: clamp(Number.isFinite(value) ? value : 2200, 1000, 5000) / 1000, x: width * .53, y: height * .46 };
       burst(warp.x, warp.y, .8);
     };
     const measureScrollSections = () => {
@@ -99,11 +102,13 @@ export default function SparkleEffects({ paused = false }) {
     const onScroll = () => {
       const now = performance.now(), next = window.scrollY, delta = next - scrollY;
       if (enabled()) {
+        clock = now / 1000;
         scrollSpeed = clamp(Math.abs(delta) / Math.max((now - lastScrollTime) / 1000, .016) / 1600, 0, 1);
         for (const section of scrollSections) {
           // A single effect per section crossing, with a cooldown for trackpad reversals.
           if (scrollY < section.top && next >= section.top && clock - section.fired > 8) beginScrollScene(section);
         }
+        wake();
       }
       scrollY = next; lastScrollTime = now;
     };
@@ -122,6 +127,7 @@ export default function SparkleEffects({ paused = false }) {
         }
       }
       pointer = current;
+      wake();
     };
     const onPointerLeave = event => { if (!event.relatedTarget) pointer = null; };
     const onClick = event => {
@@ -133,26 +139,44 @@ export default function SparkleEffects({ paused = false }) {
       } else burst(event.clientX, event.clientY, .85);
     };
 
+    const glintSprite = color => {
+      if (glintSprites.has(color)) return glintSprites.get(color);
+      const sprite = document.createElement('canvas'); sprite.width = sprite.height = 64;
+      const ctx = sprite.getContext('2d'); ctx.translate(32, 32);
+      ctx.fillStyle = `rgb(${color})`; ctx.shadowColor = `rgba(${color},.7)`; ctx.shadowBlur = 10;
+      ctx.beginPath(); ctx.moveTo(0, -8.8); ctx.lineTo(1.28, -1.28); ctx.lineTo(6, 0); ctx.lineTo(1.28, 1.28);
+      ctx.lineTo(0, 8.8); ctx.lineTo(-1.28, 1.28); ctx.lineTo(-6, 0); ctx.lineTo(-1.28, -1.28); ctx.closePath(); ctx.fill();
+      glintSprites.set(color, sprite); return sprite;
+    };
+    const raySprite = color => {
+      if (raySprites.has(color)) return raySprites.get(color);
+      const sprite = document.createElement('canvas'); sprite.width = 128; sprite.height = 2;
+      const ctx = sprite.getContext('2d'), gradient = ctx.createLinearGradient(0, 0, 128, 0);
+      gradient.addColorStop(0, `rgba(${color},0)`); gradient.addColorStop(.7, `rgba(${color},.45)`); gradient.addColorStop(1, `rgb(${color})`);
+      ctx.fillStyle = gradient; ctx.fillRect(0, 0, 128, 2); raySprites.set(color, sprite); return sprite;
+    };
+    // Cache the blurred stars and streak gradients once, instead of rebuilding
+    // hundreds of shadow kernels and gradients on every animation frame.
     const drawGlint = (x, y, size, angle, color, alpha) => {
       context.save();
       context.translate(x, y); context.rotate(angle);
-      context.fillStyle = `rgba(${color},${alpha})`;
-      context.shadowColor = `rgba(${color},${alpha * .7})`; context.shadowBlur = 9;
-      context.beginPath();
-      context.moveTo(0, -size * 2.2); context.lineTo(size * .32, -size * .32);
-      context.lineTo(size * 1.5, 0); context.lineTo(size * .32, size * .32);
-      context.lineTo(0, size * 2.2); context.lineTo(-size * .32, size * .32);
-      context.lineTo(-size * 1.5, 0); context.lineTo(-size * .32, -size * .32);
-      context.closePath(); context.fill(); context.restore();
+      context.globalAlpha = alpha; context.shadowBlur = 0;
+      const extent = size * 8; context.drawImage(glintSprite(color), -extent, -extent, extent * 2, extent * 2); context.restore();
+    };
+    const drawRay = (x, y, angle, length, thickness, color, alpha) => {
+      if (length <= 0 || alpha <= 0) return;
+      context.save(); context.translate(x, y); context.rotate(angle); context.globalAlpha = alpha; context.shadowBlur = 0;
+      context.drawImage(raySprite(color), 0, -thickness / 2, length, thickness); context.restore();
     };
     const drawParticles = dt => {
+      const drag = Math.exp(-dt * 1.6);
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
         p.life -= dt;
         if (p.life <= 0) { particles.splice(i, 1); continue; }
         p.px = p.x; p.py = p.y;
         p.x += p.vx * dt; p.y += p.vy * dt;
-        p.vx *= Math.exp(-dt * 1.6); p.vy *= Math.exp(-dt * 1.6);
+        p.vx *= drag; p.vy *= drag;
         p.angle += p.turn * dt;
         const progress = p.life / p.maxLife;
         const alpha = Math.min(1, progress * 2) * .85;
@@ -194,12 +218,7 @@ export default function SparkleEffects({ paused = false }) {
         const t = meteor.age / meteor.duration, alpha = Math.sin(t * Math.PI) * .65;
         const x = meteor.x + meteor.vx * meteor.age, y = meteor.y + meteor.vy * meteor.age;
         const tx = x + meteor.length, ty = y - meteor.length * .67;
-        const gradient = context.createLinearGradient(x, y, tx, ty);
-        gradient.addColorStop(0, `rgba(242,222,255,${alpha})`);
-        gradient.addColorStop(.16, `rgba(208,158,255,${alpha * .6})`);
-        gradient.addColorStop(1, 'rgba(184,125,255,0)');
-        context.beginPath(); context.moveTo(x, y); context.lineTo(tx, ty);
-        context.strokeStyle = gradient; context.lineWidth = meteor.ceremonial ? 1.7 : 1.2; context.stroke();
+        drawRay(tx, ty, 2.5513, meteor.length * 1.2037, meteor.ceremonial ? 1.7 : 1.2, '239,213,255', alpha);
         drawGlint(x, y, meteor.ceremonial ? 2.8 : 1.6, .4, '239,213,255', alpha);
       }
     };
@@ -215,14 +234,9 @@ export default function SparkleEffects({ paused = false }) {
         const radius = 35 + depth * depth * reach;
         const length = (8 + depth * 70) * flightEnergy;
         const c = Math.cos(ray.angle), s = Math.sin(ray.angle);
-        const x = cx + c * radius, y = cy + s * radius;
         const tx = cx + c * (radius - length), ty = cy + s * (radius - length);
         const alpha = Math.sin(depth * Math.PI) * flightEnergy * .45;
-        const gradient = context.createLinearGradient(tx, ty, x, y);
-        gradient.addColorStop(0, `rgba(${ray.color},0)`);
-        gradient.addColorStop(1, `rgba(${ray.color},${alpha})`);
-        context.strokeStyle = gradient; context.lineWidth = .6 + depth * .7;
-        context.beginPath(); context.moveTo(tx, ty); context.lineTo(x, y); context.stroke();
+        drawRay(tx, ty, ray.angle, length, .6 + depth * .7, ray.color, alpha);
       }
     };
     const drawScrollScenes = dt => {
@@ -294,6 +308,11 @@ export default function SparkleEffects({ paused = false }) {
         context.restore();
       }
     };
+    const haloSprite = document.createElement('canvas'); haloSprite.width = haloSprite.height = 256;
+    const haloContext = haloSprite.getContext('2d'), haloGradient = haloContext.createRadialGradient(128, 128, 6, 128, 128, 128);
+    haloGradient.addColorStop(0, 'rgba(185,138,255,0)'); haloGradient.addColorStop(.58, 'rgba(184,116,255,.055)');
+    haloGradient.addColorStop(.73, 'rgba(230,174,255,.12)'); haloGradient.addColorStop(1, 'rgba(181,121,255,0)');
+    haloContext.fillStyle = haloGradient; haloContext.fillRect(0, 0, 256, 256);
     const drawWarp = () => {
       if (!warp) return;
       const t = (clock - warp.start) / warp.duration;
@@ -306,45 +325,47 @@ export default function SparkleEffects({ paused = false }) {
         const radius = 25 + depth * depth * reach;
         const tail = Math.max(20, radius - (30 + radius * ray.length * 4) * envelope);
         const c = Math.cos(ray.angle), s = Math.sin(ray.angle);
-        const x = warp.x + c * radius, y = warp.y + s * radius;
         const tx = warp.x + c * tail, ty = warp.y + s * tail;
         const alpha = envelope * Math.sin(depth * Math.PI) * .74;
-        const gradient = context.createLinearGradient(tx, ty, x, y);
-        gradient.addColorStop(0, `rgba(${ray.color},0)`);
-        gradient.addColorStop(.7, `rgba(${ray.color},${alpha * .45})`);
-        gradient.addColorStop(1, `rgba(${ray.color},${alpha})`);
-        context.strokeStyle = gradient; context.lineWidth = .55 + depth * 1.4;
-        context.beginPath(); context.moveTo(tx, ty); context.lineTo(x, y); context.stroke();
+        drawRay(tx, ty, ray.angle, radius - tail, .55 + depth * 1.4, ray.color, alpha);
       }
       // A soft lens halo frames the warp without masking any page content.
-      const halo = context.createRadialGradient(warp.x, warp.y, 25, warp.x, warp.y, reach * .48);
-      halo.addColorStop(0, 'rgba(185,138,255,0)');
-      halo.addColorStop(.58, `rgba(184,116,255,${envelope * .055})`);
-      halo.addColorStop(.73, `rgba(230,174,255,${envelope * .12})`);
-      halo.addColorStop(1, 'rgba(181,121,255,0)');
-      context.fillStyle = halo; context.fillRect(0, 0, width, height);
+      const radius = reach * .48;
+      context.save(); context.globalAlpha = envelope; context.drawImage(haloSprite, warp.x - radius, warp.y - radius, radius * 2, radius * 2); context.restore();
     };
     const render = now => {
       frame = 0;
       if (!enabled()) return;
-      if (previous && now - previous < 24) { frame = requestAnimationFrame(render); return; }
+      if (previous && now - previous < 30) { frame = requestAnimationFrame(render); return; }
       const dt = previous ? Math.min((now - previous) / 1000, .05) : 1 / 40;
-      previous = now; clock += dt;
+      previous = now; clock = now / 1000;
       context.clearRect(0, 0, width, height);
       context.globalCompositeOperation = 'lighter';
       drawScrollFlight(dt); drawScrollScenes(dt); drawWarp(); drawMeteors(dt); drawRings(dt); drawParticles(dt);
       context.globalCompositeOperation = 'source-over';
+      if (particles.length || rings.length || meteors.length || scrollScenes.length || warp || flightEnergy > .015 || scrollSpeed > .015) {
+        frame = requestAnimationFrame(render);
+      } else {
+        // A transparent, empty fullscreen canvas does not need 30 repaints/sec.
+        previous = 0;
+        idleTimer = setTimeout(() => { idleTimer = 0; wake(); }, Math.max(20, (nextMeteor - clock) * 1000 + 20));
+      }
+    };
+    wake = () => {
+      if (!enabled() || frame) return;
+      clearTimeout(idleTimer); idleTimer = 0;
       frame = requestAnimationFrame(render);
     };
     const refresh = () => {
-      cancelAnimationFrame(frame); frame = 0; previous = 0;
+      cancelAnimationFrame(frame); clearTimeout(idleTimer); frame = 0; idleTimer = 0; previous = 0;
       if (enabled()) frame = requestAnimationFrame(render);
       else clear();
     };
     const resize = () => {
       width = canvas.clientWidth; height = canvas.clientHeight; mobile = width < 640;
-      const dpr = Math.min(devicePixelRatio || 1, mobile ? 1 : 1.5);
-      canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr);
+      const dpr = Math.min(devicePixelRatio || 1, mobile ? 1 : 1.25, Math.sqrt(2000000 / Math.max(1, width * height)));
+      const bufferWidth = Math.round(width * dpr), bufferHeight = Math.round(height * dpr);
+      if (canvas.width !== bufferWidth || canvas.height !== bufferHeight) { canvas.width = bufferWidth; canvas.height = bufferHeight; }
       context.setTransform(dpr, 0, 0, dpr, 0, 0);
       if (warp) { warp.x = width * .53; warp.y = height * .46; }
       measureScrollSections();
@@ -361,7 +382,7 @@ export default function SparkleEffects({ paused = false }) {
     reduced.addEventListener('change', refresh);
     refreshRef.current = refresh; resize(); refresh();
     return () => {
-      disposed = true; cancelAnimationFrame(frame); observer.disconnect(); pageObserver.disconnect(); clear(); refreshRef.current = null;
+      disposed = true; cancelAnimationFrame(frame); clearTimeout(idleTimer); observer.disconnect(); pageObserver.disconnect(); clear(); glintSprites.clear(); raySprites.clear(); refreshRef.current = null;
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('pointermove', onPointer); window.removeEventListener('pointerout', onPointerLeave);
       window.removeEventListener('click', onClick); window.removeEventListener('orbit:burst', onBurst); window.removeEventListener('orbit:warp', onWarp);

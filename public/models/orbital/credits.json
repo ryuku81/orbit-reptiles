@@ -1,0 +1,39 @@
+[
+  {
+    "file": "python.glb",
+    "title": "Green tree python",
+    "author": "Grab3D",
+    "source": "https://grab3d.com/models/animals/snake/",
+    "download": "https://grab3d.com/dl/snake/snake-light.glb",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://grab3d.com/dl/snake/LICENSE.txt",
+    "triangles": 47999,
+    "bytes": 1634772,
+    "origin": "AI-assisted base mesh and textures, cleaned in Blender by Grab3D",
+    "modifications": "Simplified to 12% geometry with error tolerance .002; textures resized to 1024 and compressed to WebP. Runtime gentle breathing, floating and turning."
+  },
+  {
+    "file": "crocodile.glb",
+    "title": "Crocodile",
+    "author": "Grab3D",
+    "source": "https://grab3d.com/models/animals/crocodile/",
+    "download": "https://grab3d.com/dl/crocodile/crocodile-light.glb",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://grab3d.com/dl/crocodile/LICENSE.txt",
+    "triangles": 45329,
+    "bytes": 1742872,
+    "origin": "AI-assisted base mesh and textures, cleaned in Blender by Grab3D",
+    "modifications": "Simplified to 12% geometry with error tolerance .002; textures resized to 1024 and compressed to WebP. Runtime gentle breathing, floating and turning."
+  },
+  {
+    "file": "dragon.glb",
+    "title": "Rigged Dragon",
+    "author": "afk.ai",
+    "source": "https://afk.ai/auto-rig/dragon",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://afk.ai/auto-rig/dragon",
+    "triangles": 3498,
+    "bytes": 2282292,
+    "modifications": "Original mesh and 100-joint skeleton. Runtime flight animations and orbit."
+  }
+]

@@ -135,7 +135,7 @@ export default function UniverseBackdrop({ progress, velocity, paused = false })
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return undefined;
-    let renderer, frame = 0, disposed = false, lost = false;
+    let renderer, frame = 0, resizeFrame = 0, disposed = false, lost = false;
     let previous = 0, elapsed = 0, currentProgress = 0, energy = 0;
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
     const resources = [];
@@ -147,6 +147,7 @@ export default function UniverseBackdrop({ progress, velocity, paused = false })
     const cleanup = () => {
       disposed = true;
       cancelAnimationFrame(frame);
+      cancelAnimationFrame(resizeFrame);
       cleanups.forEach(fn => fn());
       resources.forEach(item => item.dispose());
       renderer?.dispose();
@@ -173,10 +174,26 @@ export default function UniverseBackdrop({ progress, velocity, paused = false })
         uProgress: { value: 0 }, uEnergy: { value: 0 },
         uTextureReady: { value: 0 }, uReference: { value: blank },
       };
-      nebula.add(new THREE.Mesh(geometry(new THREE.PlaneGeometry(2, 2)), material(new THREE.ShaderMaterial({
+      const screenGeometry = geometry(new THREE.PlaneGeometry(2, 2));
+      nebula.add(new THREE.Mesh(screenGeometry, material(new THREE.ShaderMaterial({
         vertexShader: nebulaVertex, fragmentShader: nebulaFragment, uniforms: nebulaUniforms,
         depthTest: false, depthWrite: false,
       }))));
+      // Clouds are naturally soft: shade them into a small texture, then compose
+      // with full-resolution stars. Avoid millions of fBm evaluations per frame.
+      const cloudTarget = new THREE.WebGLRenderTarget(1, 1, {
+        depthBuffer: false, stencilBuffer: false,
+        minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+      });
+      resources.push(cloudTarget);
+      const cloudComposite = new THREE.Scene();
+      cloudComposite.add(new THREE.Mesh(screenGeometry, material(new THREE.ShaderMaterial({
+        uniforms: { clouds: { value: cloudTarget.texture } },
+        vertexShader: nebulaVertex,
+        fragmentShader: 'varying vec2 vUv;uniform sampler2D clouds;void main(){gl_FragColor=texture2D(clouds,vUv);}',
+        depthTest: false, depthWrite: false,
+      }))));
+      let cloudDirty = true, lastCloudFrame = -Infinity, lastWidth = 0, lastHeight = 0, lastDpr = 0;
       const starScene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(54, 1, .1, 150);
       const count = innerWidth < 640 ? 900 : 1600;
@@ -208,19 +225,34 @@ export default function UniverseBackdrop({ progress, velocity, paused = false })
       stars.frustumCulled = false;
       starScene.add(stars);
       const moving = () => !disposed && !lost && !document.hidden && !propsRef.current.paused && !media.matches;
-      const render = () => {
+      const render = (now = performance.now()) => {
         if (disposed || lost) return;
+        // The slow nebula drift needs fewer updates than the travelling stars.
+        if (cloudDirty || now - lastCloudFrame > (energy > .035 ? 32 : 55)) {
+          renderer.setRenderTarget(cloudTarget);
+          renderer.clear();
+          renderer.render(nebula, fullscreenCamera);
+          renderer.setRenderTarget(null);
+          cloudDirty = false; lastCloudFrame = now;
+        }
         renderer.clear();
-        renderer.render(nebula, fullscreenCamera);
+        renderer.render(cloudComposite, fullscreenCamera);
         renderer.clearDepth();
         renderer.render(starScene, camera);
       };
       const resize = () => {
         const width = host.clientWidth, height = host.clientHeight;
         if (!width || !height || disposed) return;
-        const dpr = Math.min(devicePixelRatio || 1, width < 640 ? 1 : 1.25);
+        const dpr = Math.min(devicePixelRatio || 1, width < 640 ? 1 : 1.25, Math.sqrt(2100000 / (width * height)));
+        if (width === lastWidth && height === lastHeight && dpr === lastDpr) return;
+        lastWidth = width; lastHeight = height; lastDpr = dpr;
         renderer.setPixelRatio(dpr);
         renderer.setSize(width, height, false);
+        const cloudScale = Math.min(1, Math.sqrt((width < 640 ? 250000 : 460000) / (width * height)));
+        const cloudWidth = Math.max(1, Math.round(width * cloudScale)), cloudHeight = Math.max(1, Math.round(height * cloudScale));
+        cloudTarget.setSize(cloudWidth, cloudHeight);
+        host.dataset.cloudPixels = String(cloudWidth * cloudHeight);
+        cloudDirty = true;
         nebulaUniforms.uResolution.value.set(width, height);
         starUniforms.uDpr.value = dpr;
         camera.aspect = width / height;
@@ -230,13 +262,15 @@ export default function UniverseBackdrop({ progress, velocity, paused = false })
       const loop = now => {
         frame = 0;
         if (!moving()) { previous = 0; return; }
-        // 30 fps keeps the full-screen procedural atmosphere economical.
-        if (previous && now - previous < 30) { frame = requestAnimationFrame(loop); return; }
+        // Present travelling stars at display cadence while scrolling. Only the
+        // inexpensive texture composite and stars use that higher cadence.
+        const speed = Math.min(Math.abs(propsRef.current.velocity?.get?.() || 0) / 2500, 1);
+        const frameInterval = speed > .025 || energy > .04 ? 15 : 30;
+        if (previous && now - previous < frameInterval) { frame = requestAnimationFrame(loop); return; }
         const dt = previous ? Math.min((now - previous) / 1000, .08) : 1 / 30;
         previous = now;
         elapsed += dt;
         const target = THREE.MathUtils.clamp(propsRef.current.progress?.get?.() || 0, 0, 1);
-        const speed = Math.min(Math.abs(propsRef.current.velocity?.get?.() || 0) / 2500, 1);
         currentProgress = THREE.MathUtils.lerp(currentProgress, target, 1 - Math.exp(-dt * 4.5));
         energy = THREE.MathUtils.lerp(energy, speed, 1 - Math.exp(-dt * 4));
         smoothedPointer.lerp(pointer, 1 - Math.exp(-dt * 1.4));
@@ -249,7 +283,7 @@ export default function UniverseBackdrop({ progress, velocity, paused = false })
         camera.position.x = smoothedPointer.x * .35 + Math.sin(currentProgress * Math.PI * 2) * 3.4;
         camera.position.y = smoothedPointer.y * .22 + Math.sin(currentProgress * Math.PI * 3) * 1.6;
         camera.rotation.z = Math.sin(currentProgress * Math.PI * 2) * .105;
-        render();
+        render(now);
         frame = requestAnimationFrame(loop);
       };
       const update = () => {
@@ -269,7 +303,9 @@ export default function UniverseBackdrop({ progress, velocity, paused = false })
         cancelAnimationFrame(frame);
         renderer.domElement.style.opacity = '0';
       };
-      const observer = new ResizeObserver(resize);
+      const observer = new ResizeObserver(() => {
+        if (!resizeFrame) resizeFrame = requestAnimationFrame(() => { resizeFrame = 0; resize(); });
+      });
       observer.observe(host);
       window.addEventListener('pointermove', onPointer, { passive: true });
       document.addEventListener('visibilitychange', update);
@@ -280,6 +316,7 @@ export default function UniverseBackdrop({ progress, velocity, paused = false })
         if (disposed) { image.dispose(); return; }
         nebulaUniforms.uTextureReady.value = 1;
         nebulaUniforms.uReference.value = image;
+        cloudDirty = true;
         render();
       }, undefined, () => {});
       texture.colorSpace = THREE.SRGBColorSpace;
