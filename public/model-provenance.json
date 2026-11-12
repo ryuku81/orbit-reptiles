@@ -1,0 +1,65 @@
+{
+  "integration": "Official Sketchfab Viewer API v1.12.1; no model archives downloaded or redistributed.",
+  "models": {
+    "chameleon": {
+      "id": "chameleon",
+      "uid": "7b02c861d6384fb58ac14fcd54d98475",
+      "title": "Chameleon Sculpt",
+      "author": "Rumpelstiltskin",
+      "authorUrl": "https://sketchfab.com/rumpelshtiltshin",
+      "url": "https://sketchfab.com/models/7b02c861d6384fb58ac14fcd54d98475",
+      "triangleCount": 1968094,
+      "license": "Sketchfab official embed; source model is not redistributed",
+      "hostedBy": "Sketchfab",
+      "thumbnail": "https://media.sketchfab.com/models/7b02c861d6384fb58ac14fcd54d98475/thumbnails/ed8106c443ae4b35b5647804dd977df6/cfeb2be1f99e4653a1f7da1b6e24836d.jpeg"
+    },
+    "lg": {
+      "id": "lg",
+      "uid": "c373eda1106d4543b42ae4b069906243",
+      "title": "Leopard Gecko",
+      "author": "Zyleck",
+      "authorUrl": "https://sketchfab.com/Zyleck",
+      "url": "https://sketchfab.com/models/c373eda1106d4543b42ae4b069906243",
+      "triangleCount": 2521406,
+      "license": "Sketchfab official embed; source model is not redistributed",
+      "hostedBy": "Sketchfab",
+      "thumbnail": "https://media.sketchfab.com/models/c373eda1106d4543b42ae4b069906243/thumbnails/23280f6b847649518eee776d5787ab52/3c6d36d3753748fa90bd98dc3bd26f1b.jpeg"
+    },
+    "bp": {
+      "id": "bp",
+      "uid": "587aff215b4e4bd8939a1748e3ae7c42",
+      "title": "Blackhead Ball Python",
+      "author": "Nestaeric",
+      "authorUrl": "https://sketchfab.com/Nestaeric",
+      "url": "https://sketchfab.com/models/587aff215b4e4bd8939a1748e3ae7c42",
+      "triangleCount": 10874,
+      "license": "Sketchfab official embed; source model is not redistributed",
+      "hostedBy": "Sketchfab",
+      "thumbnail": "https://media.sketchfab.com/models/587aff215b4e4bd8939a1748e3ae7c42/thumbnails/ae1e67397b234dd5b0195582fd95005c/c86163a0a4804e6ca6664369d889f840.jpeg"
+    },
+    "cg": {
+      "id": "cg",
+      "uid": "a749bd4af7844eb8ac9c1ed5e933a8c9",
+      "title": "crested gecko",
+      "author": "polynis",
+      "authorUrl": "https://sketchfab.com/polynis",
+      "url": "https://sketchfab.com/models/a749bd4af7844eb8ac9c1ed5e933a8c9",
+      "triangleCount": 351124,
+      "license": "Sketchfab official embed; source model is not redistributed",
+      "hostedBy": "Sketchfab",
+      "thumbnail": "https://media.sketchfab.com/models/a749bd4af7844eb8ac9c1ed5e933a8c9/thumbnails/2d33ca17f515455eb16faf1611f463b2/59acbe3e567d4d948ff44cafd0db91ee.jpeg"
+    },
+    "bd": {
+      "id": "bd",
+      "uid": "c1e0b39951b84b0f8ab3c518a050f619",
+      "title": "Bearded Dragon",
+      "author": "Matthew Strong",
+      "authorUrl": "https://sketchfab.com/technolizardms",
+      "url": "https://sketchfab.com/models/c1e0b39951b84b0f8ab3c518a050f619",
+      "triangleCount": 999998,
+      "license": "Sketchfab official embed; source model is not redistributed",
+      "hostedBy": "Sketchfab",
+      "thumbnail": "https://media.sketchfab.com/models/c1e0b39951b84b0f8ab3c518a050f619/thumbnails/818979f5468f4af69099f747973344d6/fcf7151377774ba0b4dea373a117e3bf.jpeg"
+    }
+  }
+}

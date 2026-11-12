@@ -48,3 +48,25 @@
  .reptile-lab .lab-color-options button{font-size:10px;min-height:44px}
 }
 @media(prefers-reduced-motion:reduce){.serpent-art,.serpent-aura{animation:none}.serpent-radiance{transition:none}}
+.precision-stage{background:radial-gradient(ellipse at 50% 65%,#47255a55,#10081d88 75%);height:660px}
+.precision-stage:before,.precision-stage:after{display:none}
+.precision-controls .lab-actions button:disabled{opacity:.5;cursor:default}
+.precision-status{display:flex;align-items:center;gap:9px}
+.precision-controls .lab-color-options button{gap:8px}
+@media(max-width:800px){.precision-stage{height:570px}}
+@media(max-width:640px){.precision-stage{height:470px}.precision-controls .lab-color-options button{font-size:9px;gap:6px}.precision-status{font-size:8px}}
+.animal-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:36px 28px}
+.animal-image{aspect-ratio:1.4;border-radius:10px;background:radial-gradient(ellipse at 50% 60%,#352345,#0c0717)}
+.animal-image .animal-tag,.animal-image .specimen-live{display:none}
+.animal-image:after{display:none}
+.animal-image .save-button{top:auto;bottom:8px;right:8px;z-index:5;background:#1b092bd9}
+.animal-image .view-label{bottom:55px;left:20px;right:20px;pointer-events:none}
+.animal-english{font-size:9px}
+.animal-title{font-size:17px}
+.scene-modal .viewer-title{position:relative;top:auto;left:auto;padding:28px 30px 10px}
+.scene-modal .scene-container{border-radius:0;height:560px}
+.scene-modal .viewer-controls{padding-top:18px}
+.detail-orbit-hint{display:none}
+.model-credits{display:grid;gap:9px;margin-top:15px!important}
+.model-credits>span{display:block;line-height:1.8}
+@media(max-width:640px){.animal-grid{grid-template-columns:1fr;gap:34px}.animal-image{aspect-ratio:1.08}.animal-title{font-size:16px}.animal-english{font-size:8px}.animal-bottom{flex-direction:row;align-items:center}.scene-modal .viewer-title{padding:25px 20px 10px}.scene-modal .scene-container{height:430px}.detail-specimen{min-height:355px}}

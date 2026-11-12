@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { motion, useScroll, useTransform } from 'motion/react';
 import { Sparkle, ArrowUpRight } from '@phosphor-icons/react';
 import useFrozenMotion from './useFrozenMotion.js';
+const LivingPortraitEffect = lazy(() => import('./LivingPortraitEffect.jsx'));
 
 export default function StarFinale({ paused = false }) {
   const section = useRef(null), button = useRef(null), charge = useRef({ start: 0, value: 0, frame: 0, active: false }), reset = useRef(null);
@@ -38,7 +39,7 @@ export default function StarFinale({ paused = false }) {
   useEffect(() => () => { cancelAnimationFrame(charge.current.frame); clearTimeout(reset.current); }, []);
   return <section className={`star-finale ${charged?'supernova-active':''}`} ref={section} id="supernova">
     <div className="finale-aurora" aria-hidden="true"/>
-    <motion.div className="finale-serpent" style={{ scale, rotate, y }} aria-hidden="true"><img src="/images/amethyst-reptile.webp" alt="" loading="lazy"/></motion.div>
+    <motion.div className="finale-serpent" style={{ scale, rotate, y }} aria-hidden="true"><div className="finale-living-art"><img src="/images/amethyst-reptile.webp" alt="" loading="lazy"/><Suspense fallback={null}><LivingPortraitEffect variant="gecko" paused={paused} progress={progress}/></Suspense></div></motion.div>
     <div className="finale-copy"><span className="eyebrow">MAKE THE UNIVERSE YOURS</span><h2>その指先から、<br/><span>宇宙が生まれる。</span></h2><p>星を集めて、解き放つ。<br/>まだ見たことのない光を、この場所で。</p>
       <button ref={button} className="supernova-button" disabled={paused} onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId);start();}} onPointerUp={()=>finish()} onPointerCancel={cancel} onKeyDown={e=>{if((e.key===' '||e.key==='Enter')&&!e.repeat){e.preventDefault();start();}}} onKeyUp={e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();finish();}}} onBlur={cancel} aria-label="SUPERNOVA: 長押しして星を解き放つ"><span className="supernova-fill"/><Sparkle weight="fill" size={21}/><span>{charged?'A STAR IS BORN':'SUPERNOVA'}</span><ArrowUpRight size={18}/></button>
       <span className="charge-hint" aria-live="polite">{paused?'エフェクトを再開すると遊べます':charged?'あなたの星が、きらめいた。':'長押しでチャージ / 離して解き放つ'}</span>

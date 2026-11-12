@@ -1,61 +1,49 @@
 import useMotionPreference from './useMotionPreference.js';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Cube, Scan, Sparkle, ArrowsOut, ArrowCounterClockwise, Hand, ArrowUpRight } from '@phosphor-icons/react';
+import { Cube, Sparkle, ArrowCounterClockwise, Hand, ArrowUpRight, MagnifyingGlassPlus, ArrowsOut, Play, Pause } from '@phosphor-icons/react';
 import './reptile-lab.css';
 const ReptileScene = lazy(() => import('./ReptileScene.jsx'));
-const palettes = [
-  { id: 'natural', label: 'ナチュラル', english: 'NATURAL', color: '#9ac986' },
-  { id: 'amethyst', label: 'アメジスト', english: 'AMETHYST', color: '#bf7aff' },
-  { id: 'nebula', label: 'ネビュラ', english: 'NEBULA', color: '#ff83c6' },
-  { id: 'stardust', label: 'スターダスト', english: 'STARDUST', color: '#77e5ff' },
-];
 
 export default function ReptileLab({ paused = false }) {
-  const ref = useRef(null);
-  const reduced = useMotionPreference();
-  const [loaded, setLoaded] = useState(false);
-  const [colorMode, setColorMode] = useState('natural');
-  const [scan, setScan] = useState(false);
-  const [explode, setExplode] = useState(false);
-  const [resetKey, setResetKey] = useState(0);
-  const palette = palettes.find(item => item.id === colorMode);
+  const ref = useRef(null), reduced = useMotionPreference();
+  const [loaded, setLoaded] = useState(false), [ready, setReady] = useState(false);
+  const [focus, setFocus] = useState('full'), [rotating, setRotating] = useState(true), [resetKey, setResetKey] = useState(0);
+  const still = paused || reduced;
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) { setLoaded(true); observer.disconnect(); }
-    }, { rootMargin: '300px' });
-    observer.observe(ref.current);
-    return () => observer.disconnect();
+    }, { rootMargin: '500px' });
+    observer.observe(ref.current); return () => observer.disconnect();
   }, []);
   const emit = event => {
-    if (paused || reduced) return;
+    if (still) return;
     const { left, top, width, height } = event.currentTarget.getBoundingClientRect();
     window.dispatchEvent(new CustomEvent('orbit:burst', { detail: { x: left + width / 2, y: top + height / 2, power: .65 } }));
   };
-  const reset = () => { setColorMode('natural'); setScan(false); setExplode(false); setResetKey(key => key + 1); };
-  return <section id="reptile-lab" className="reptile-lab" ref={ref} style={{ '--lab-accent': palette.color }} aria-labelledby="reptile-lab-title">
+  const reset = () => { setFocus('full'); setRotating(true); setResetKey(key => key + 1); };
+  return <section id="reptile-lab" className="reptile-lab precision-lab" ref={ref} style={{ '--lab-accent': '#c4a0ed' }} aria-labelledby="reptile-lab-title">
     <div className="lab-introduction">
-      <motion.div className="lab-heading" initial={paused || reduced ? false : { opacity: 0, y: 35 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: paused || reduced ? 0 : .8 }}>
-        <span className="lab-eyebrow"><Sparkle size={16} weight="light"/>LIVING STARDUST</span>
-        <h2 id="reptile-lab-title">星から、<span>生まれた。</span></h2>
-        <p>触れる。色を変える。星屑にほどく。<br/>息づく鱗を、あらゆる角度から眺めよう。</p>
+      <motion.div className="lab-heading" initial={still ? false : { opacity: 0, y: 35 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: still ? 0 : .8 }}>
+        <span className="lab-eyebrow"><Sparkle size={16} weight="light"/>A LIVING SCULPTURE</span>
+        <h2 id="reptile-lab-title">生命の、<span>その奥へ。</span></h2>
+        <p>緻密な鱗。吸い込まれるような瞳。<br/>近づくほどに、見えてくる小さな宇宙。</p>
       </motion.div>
-      <div className="lab-invitation"><Cube size={20}/><span>触れるたび、違う表情。</span><ArrowUpRight size={16}/></div>
+      <div className="lab-invitation"><Cube size={20}/><span>角度を変えて、細部まで。</span><ArrowUpRight size={16}/></div>
     </div>
-    <div className={`lab-stage ${scan ? 'lab-scanning' : ''} ${explode ? 'lab-dispersed' : ''}`}>
-      <div className="lab-stage-halo" aria-hidden="true"/>
-      <div className="lab-coordinate" aria-hidden="true"><span>ORBIT SPECIMEN</span><strong>{palette.english}</strong><span>{explode ? 'STARDUST FORM' : scan ? 'SPECTRAL SCAN' : 'LIVING CHAMELEON'}</span></div>
-      <div className="lab-canvas" aria-label="色や形を変えて遊べる3D爬虫類">
-        {loaded && <Suspense fallback={<div className="lab-loading"><Cube size={38}/><span>星屑が、生命になる。</span></div>}><ReptileScene key={resetKey} paused={paused || reduced} colorMode={colorMode} scan={scan} explode={explode} allowPageScroll/></Suspense>}
-        {!loaded && <div className="lab-loading"><Cube size={38}/><span>星屑が、生命になる。</span></div>}
+    <div className="lab-stage precision-stage">
+      <div className="lab-canvas" aria-label="精密なカメレオンの3D展示">
+        {loaded && <Suspense fallback={<div className="lab-loading"><Cube size={38}/><span>小さな生命を呼び出しています。</span></div>}><ReptileScene paused={still} autoRotate={rotating} focus={focus} resetKey={resetKey} allowPageScroll onReady={() => setReady(true)}/></Suspense>}
+        {!loaded && <div className="lab-loading"><Cube size={38}/><span>小さな生命を呼び出しています。</span></div>}
       </div>
-      <div className="lab-drag-hint"><Hand size={16}/><span>ドラッグで回転 / ピンチでズーム</span></div>
-      <button className="lab-reset" onClick={reset} aria-label="3Dモデルの表示をリセット"><ArrowCounterClockwise size={17}/><span>RESET</span></button>
     </div>
-    <div className="lab-controls">
-      <div className="lab-spectrum"><span className="lab-control-label">CHOOSE YOUR LIGHT</span><div className="lab-color-options" role="group" aria-label="爬虫類のカラー">{palettes.map(item => <button key={item.id} className={colorMode === item.id ? 'is-selected' : ''} aria-pressed={colorMode === item.id} onClick={event => { setColorMode(item.id); emit(event); }} style={{ '--chip-color': item.color }}><span className="lab-color-gem" aria-hidden="true"/><span>{item.label}</span></button>)}</div></div>
-      <div className="lab-actions"><button className={scan ? 'is-selected' : ''} onClick={event => { setScan(value => !value); emit(event); }} aria-pressed={scan}><Scan size={18}/><span>スペクトルスキャン</span></button><button className={`lab-dissolve ${explode ? 'is-selected' : ''}`} onClick={event => { setExplode(value => !value); emit(event); }} aria-pressed={explode}><ArrowsOut size={18}/><span>{explode ? '生命に戻す' : '星屑にほどく'}</span></button></div>
+    <div className="lab-controls precision-controls">
+      <div className="lab-spectrum"><span className="lab-control-label">CHANGE YOUR PERSPECTIVE</span><div className="lab-color-options" role="group" aria-label="3Dモデルとの距離">
+        <button className={focus === 'full' ? 'is-selected' : ''} style={{ '--chip-color': '#d2b6f6' }} aria-pressed={focus === 'full'} onClick={event => { setFocus('full'); emit(event); }}><ArrowsOut size={16}/><span>全身を眺める</span></button>
+        <button className={focus === 'detail' ? 'is-selected' : ''} style={{ '--chip-color': '#d2b6f6' }} aria-pressed={focus === 'detail'} onClick={event => { setFocus('detail'); emit(event); }}><MagnifyingGlassPlus size={16}/><span>ディテールに近づく</span></button>
+      </div></div>
+      <div className="lab-actions"><button className={rotating ? 'is-selected' : ''} onClick={() => setRotating(value => !value)} aria-pressed={rotating} disabled={still}>{rotating ? <Pause size={16}/> : <Play size={16}/>}<span>{rotating ? '自動回転を止める' : '自動回転を再開'}</span></button><button onClick={reset} aria-label="3Dモデルの表示をリセット"><ArrowCounterClockwise size={16}/><span>RESET</span></button></div>
     </div>
-    <p className="lab-status" role="status">{explode ? '鱗が星屑になって、宇宙へ広がる。もう一度押すと元の姿に。' : scan ? '光の帯が、鱗の輪郭をなぞっています。' : `${palette.label}の光をまとった、オリジナル3Dアート。`}</p>
+    <p className="lab-status precision-status" role="status"><Hand size={14}/><span>{ready ? '横にドラッグで回転。縦にスクロールすると、次の星へ。' : '精密な3Dモデルを読み込んでいます…'}</span></p>
   </section>;
 }
