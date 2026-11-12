@@ -1,0 +1,42 @@
+[
+  {
+    "file": "leopard-gecko.jpg",
+    "title": "Eublepharis macularius 2009 G6.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Eublepharis_macularius_2009_G6.jpg",
+    "imageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7f/Eublepharis_macularius_2009_G6.jpg/1280px-Eublepharis_macularius_2009_G6.jpg",
+    "author": "George Chernilevsky",
+    "license": "Public domain",
+    "licenseUrl": "",
+    "modifications": "Displayed with CSS crop and color treatment; source image unmodified."
+  },
+  {
+    "file": "ball-python.jpg",
+    "title": "Python-regius-kopf-königspython.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Python-regius-kopf-k%C3%B6nigspython.jpg",
+    "imageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e5/Python-regius-kopf-k%C3%B6nigspython.jpg/1280px-Python-regius-kopf-k%C3%B6nigspython.jpg",
+    "author": "Holger Krisp",
+    "license": "CC BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+    "modifications": "Displayed with CSS crop and color treatment; source image unmodified."
+  },
+  {
+    "file": "crested-gecko.jpg",
+    "title": "Correlophus ciliatus 33484989.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Correlophus_ciliatus_33484989.jpg",
+    "imageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/44/Correlophus_ciliatus_33484989.jpg/1280px-Correlophus_ciliatus_33484989.jpg",
+    "author": "Lennart Hudel",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+    "modifications": "Displayed with CSS crop and color treatment; source image unmodified."
+  },
+  {
+    "file": "bearded-dragon.jpg",
+    "title": "Pogona vitticeps close-up 2009 G3.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Pogona_vitticeps_close-up_2009_G3.jpg",
+    "imageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ec/Pogona_vitticeps_close-up_2009_G3.jpg/1280px-Pogona_vitticeps_close-up_2009_G3.jpg",
+    "author": "George Chernilevsky",
+    "license": "Public domain",
+    "licenseUrl": "",
+    "modifications": "Displayed with CSS crop and color treatment; source image unmodified."
+  }
+]

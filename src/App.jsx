@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { motion, useReducedMotion, useMotionValue, useSpring, useTransform } from 'motion/react';
 import { ArrowUpRight, ArrowRight, ArrowDown, GlobeHemisphereWest, Planet, Cube, Heart, X, Plus, Minus, SlidersHorizontal, MagnifyingGlass, List, Pause, Play, Check, ShieldCheck, Leaf, CaretDown, EnvelopeSimple, Sparkle, InstagramLogo } from '@phosphor-icons/react';
 import Starfield from './Starfield.jsx';
-import imageSources from '../public/images/sources.json';
+import imageSources from './image-sources.json';
 const CosmicScene = lazy(()=>import('./CosmicScene.jsx'));
 const ReptileScene = lazy(()=>import('./ReptileScene.jsx'));
 const animals=[
