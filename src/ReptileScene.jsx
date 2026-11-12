@@ -162,7 +162,7 @@ export default function ReptileScene({ paused = false }) {
     const camera=new THREE.PerspectiveCamera(35,1,0.1,80);
     camera.position.set(3.3,1.7,9.3);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.7));
-    renderer.setClearColor('#060b08',0);
+    renderer.setClearColor('#10071d',0);
     renderer.outputColorSpace=THREE.SRGBColorSpace;
     renderer.toneMapping=THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure=0.95;
@@ -177,12 +177,12 @@ export default function ReptileScene({ paused = false }) {
     scene.environmentIntensity=0.48;
     environment.dispose();
     pmrem.dispose();
-    scene.add(new THREE.HemisphereLight('#d9ffc0','#09271c',0.85));
+    scene.add(new THREE.HemisphereLight('#e6d7ff','#24103e',0.85));
     const key=new THREE.DirectionalLight('#efffd4',2.1);
     key.position.set(2,5,4); scene.add(key);
-    const rim=new THREE.DirectionalLight('#a6ff72',2.1);
+    const rim=new THREE.DirectionalLight('#c890ff',2.4);
     rim.position.set(-3,2,-3); scene.add(rim);
-    const fill=new THREE.DirectionalLight('#83d3c1',0.55);
+    const fill=new THREE.DirectionalLight('#a1baff',0.65);
     fill.position.set(0,-1,4); scene.add(fill);
     const animal=buildChameleon();
     animal.rotation.y=-0.14;
@@ -192,14 +192,14 @@ export default function ReptileScene({ paused = false }) {
     const makeOrbit=(radius,angle,opacity)=>{
       const points=[];
       for(let i=0;i<=160;i++) {const a=i/160*Math.PI*2;points.push(new THREE.Vector3(Math.cos(a)*radius,0,Math.sin(a)*radius));}
-      const line=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(points),new THREE.LineBasicMaterial({color:'#9de979',transparent:true,opacity}));
+      const line=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(points),new THREE.LineBasicMaterial({color:'#d0a4ff',transparent:true,opacity}));
       line.rotation.z=angle; line.position.y=-0.45;
       orbits.add(line);
     };
     makeOrbit(3.5,0.15,0.18);makeOrbit(3.8,-0.35,0.08);makeOrbit(3.2,0.8,0.09);
     const satellites=[];
     for(let i=0;i<3;i++) {
-      const dot=new THREE.Mesh(new THREE.SphereGeometry(i===0?0.04:0.024,12,8),new THREE.MeshBasicMaterial({color:'#c2ff7d'}));
+      const dot=new THREE.Mesh(new THREE.SphereGeometry(i===0?0.04:0.024,12,8),new THREE.MeshBasicMaterial({color:'#e6c7ff'}));
       orbits.add(dot);satellites.push(dot);
     }
     let seed=274;
@@ -207,7 +207,7 @@ export default function ReptileScene({ paused = false }) {
     const starPositions=[];
     for(let i=0;i<330;i++) starPositions.push((random()-0.5)*22,(random()-0.5)*14,(random()-0.5)*14-3);
     const starsGeometry=new THREE.BufferGeometry();starsGeometry.setAttribute('position',new THREE.Float32BufferAttribute(starPositions,3));
-    const stars=new THREE.Points(starsGeometry,new THREE.PointsMaterial({color:'#d2f0cb',size:0.017,transparent:true,opacity:0.58,sizeAttenuation:true}));
+    const stars=new THREE.Points(starsGeometry,new THREE.PointsMaterial({color:'#e3d0ff',size:0.017,transparent:true,opacity:0.58,sizeAttenuation:true}));
     scene.add(stars);
     const controls=new OrbitControls(camera,renderer.domElement);
     controls.target.set(-0.15,0.15,0);
@@ -254,6 +254,6 @@ export default function ReptileScene({ paused = false }) {
     };
   }, []);
   return <div ref={hostRef} style={{position:'absolute',inset:0,overflow:'hidden'}}>
-    {unavailable && <div role="status" style={{position:'absolute',inset:0,display:'grid',placeContent:'center',padding:32,textAlign:'center',color:'#c5d5bd',background:'#0c120d'}}><p style={{fontSize:18}}>この環境では3Dビューを表示できません。</p><p style={{fontSize:13,lineHeight:1.8}}>WebGLに対応したブラウザでお楽しみください。</p></div>}
+    {unavailable && <div role="status" style={{position:'absolute',inset:0,display:'grid',placeContent:'center',padding:32,textAlign:'center',color:'#c5d5bd',background:'#14091f'}}><p style={{fontSize:18}}>この環境では3Dビューを表示できません。</p><p style={{fontSize:13,lineHeight:1.8}}>WebGLに対応したブラウザでお楽しみください。</p></div>}
   </div>;
 }
