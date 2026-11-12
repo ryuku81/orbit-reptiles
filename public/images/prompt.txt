@@ -1,0 +1,9 @@
+Use case: ads-marketing.
+Asset type: cinematic hero image for a Japanese cosmic reptile boutique website.
+Primary request: breathtaking hyperrealistic emerald and lime green chameleon perched on a rough, charcoal-black diagonal branch, floating against near-black cosmic space.
+Composition: landscape 3:2, 1536x1024. Entire animal visible, dominant large subject occupying the right 65 to 75 percent of image. The chameleon faces LEFT, head at upper-left of its body, vividly curled spiral tail toward lower-right. Leave leftmost 20 percent very dark with almost no detail, for seamless website composition. Keep head, body, feet and tail fully inside frame. Elegant dynamic diagonal stance, animal presented in a three-quarter side view.
+Lighting: cinematic emerald rimlight and pale lime key light revealing microtexture; deep black shadows; tiny subtle distant stars and a faint emerald cosmic haze behind the animal. Crisp lifelike eyes. Understated glow.
+Materials: exceptionally detailed natural polygonal scales, organic skin folds, anatomy-correct gripping feet, intricate casque, tactile bark. Photoreal wildlife macro photography with exquisite high-end CGI lighting. Beautiful realistic animal, never cartoon.
+Constraints: NO words, NO letters, NO typography, NO logos, NO UI, NO frame, NO watermarks, NO colored abstract blobs. Background nearly black, not bright green. One chameleon only.
+
+Generation: built-in image_gen imagegen tool.
