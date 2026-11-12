@@ -1,57 +1,62 @@
 # ORBIT REPTILES
 
-見て、触れて遊ぶための宇宙の爬虫類ショーケース。React / Vite / Three.js / Motionで実装。
+紫の宇宙を漂う爬虫類をテーマにした、インタラクティブなショーケースです。
+React / Vite / Three.js / Motion / Lenis で実装しています。
 
-## 起動
+## ローカル起動
+
+Node.js と npm を用意して実行します。
 
 ```sh
-npm install
+npm ci
 npm run dev
 ```
 
-## ビルド
+開発サーバーは通常 `http://localhost:5173/` で起動します。
+
+## ビルド・プレビュー
 
 ```sh
 npm run build
 npm run preview
 ```
 
-## 機能
+ビルド結果は `dist/` に出力されます。プレビューは通常 `http://localhost:4173/` です。
 
-- 提供された紫の宇宙画像を参考にした、画面全体の星雲シェーダー
-- スクロール速度に反応する奥行きのある星屑・光跡、ヒーローの視差
-- 3,000個の光粒子と発光リングを持つ3D惑星。スクロールで角度・距離・コピーが変化
-- 順番に浮かび上がる生体カード、惑星のスクロール回転、セクションの登場演出
-- 精細な生成ビジュアル、立体カード
-- 約4,700枚の鱗を持つオリジナル手続き生成3Dカメレオン。ドラッグ回転・ズーム
-- 生体のカテゴリー絞り込み、検索、お気に入り（ブラウザーに保存）
-- 生体詳細、FAQ、入力検証付きの相談フォームデモ
-- スマホ対応、キーボード操作、動きを減らす設定、アニメーション停止
+## 主な機能
 
-生体情報・価格はサンプルで、販売・予約・フォーム送信は実装していません。3Dモデルは実個体のスキャンではなくアートモデルです。
+- 七色に変化する宇宙ヘビと、呼吸・瞬き・視線・尾のアニメーション
+- 星雲、星屑、流星、スクロールに連動する視差と光の演出
+- 立体のヘビ・ワニと、翼の骨格アニメーションを持つ龍が惑星を周回
+- Sketchfab公式ビューによるカメレオンと4種類の爬虫類の精密3D展示
+- ドラッグ回転、ホイール・＋／−ボタン・キーボードによるズーム
+- パイソンの作者提供idleアニメーション、レオパ／クレスの微小な呼吸変形
+- カテゴリー絞り込み、検索、お気に入りのブラウザー保存、詳細モーダル
+- WARP、惑星の共鳴、長押しで発動するSUPERNOVA
+- スムーズスクロール、スマホ操作、エフェクト停止、OSの動きを減らす設定
+- 任意でオンにする音と全画面表示（音は初期状態オフ）
 
-画像の出典・ライセンスは `public/images/sources.json` と画面フッターの IMAGE CREDITS を参照。ヒーロー画像は built-in imagegen で生成し、プロンプトを `public/images/prompt.txt` に保存しています。
+カメレオンとフトアゴの元モデルには操作可能な骨格・変形ノードがなく、視点のゆらぎを用いています。メイン画像の生命表現は画像に対するシェーダー演出で、惑星周りの生物は実体のあるGLBモデルです。
 
-宇宙参考画像は提供されたAVIFを表示互換性のためWebPに変換し、`public/images/universe-reference.webp` に保存しています。元の画像ファイルは変更していません。背景・惑星はThree.jsのシェーダーとジオメトリによって描画します。
+展示用のコンセプトサイトです。実際の販売・予約・フォーム送信は行いません。
 
+## 素材・クレジット
 
-## インタラクティブな演出
+- 惑星を周回するモデル： [出典・ライセンス・加工内容](public/models/orbital/credits.json)。Grab3Dとafk.aiのCC0素材を使用しています。
+- 精密3D展示： [モデル情報](public/model-provenance.json)。作者がホストするSketchfab公式ビューを使用し、元モデルのファイルは再配布していません。初回表示には外部サービスへの接続が必要です。
+- 画像： [出典記録](public/images/sources.json)。宇宙の参考画像は提供素材をWebPへ変換しています。
+- 内蔵画像生成によるアート： [宇宙ヘビ](public/images/celestial-serpent.webp) / [プロンプト](public/images/serpent-prompt.txt)、[アメジストの爬虫類](public/images/amethyst-reptile.webp) / [プロンプト](public/images/amethyst-prompt.txt)。
 
-- 紫の宝石爬虫類、真珠色の宇宙ヘビの新しい生成ビジュアル
-- カーソルの星屑、クリック・タップの光輪、流星、WARPボタンとWキーによるワープ
-- 惑星を共鳴させるリングの発光
-- 3Dラボのカラー3種、スペクトルスキャン、鱗の分散・再集合、リセット
-- SUPERNOVAの長押しチャージ（キーボードのSpace/Enterにも対応）
-- 任意でオンにできる音、全画面表示。音は初期状態オフ
+画面フッターの「ART & EXPERIENCE」からも出典を確認できます。
 
-追加画像はbuilt-in imagegenで生成。`public/images/amethyst-reptile.webp` と `celestial-serpent.webp`、プロンプトは `amethyst-prompt.txt` と `serpent-prompt.txt`。実在の生体を撮影・スキャンしたものではなく、幻想的なオリジナルアートです。
+## 構成
 
+- `src/App.jsx` — ページ、ナビゲーション、コレクション、モーダル
+- `src/ScrollJourney.jsx` / `src/OrbitalCreatures.js` — 惑星と周回する立体モデル
+- `src/OfficialModelViewer.jsx` — 公式3Dビューの操作とアニメーション
+- `src/LivingPortraitEffect.jsx` — メイン画像の呼吸・瞬き・光
+- `src/UniverseBackdrop.jsx` / `src/SparkleEffects.jsx` — 背景と粒子演出
+- `src/useSmoothScroll.js` — スクロールの補間
+- `public/models/` / `public/images/` — サイトの素材
 
-### 新しい生成素材（built-in imagegen）
-
-- [アメジストの爬虫類](public/images/amethyst-reptile.webp) / [生成プロンプト](public/images/amethyst-prompt.txt)
-- [真珠色の宇宙ヘビ](public/images/celestial-serpent.webp) / [生成プロンプト](public/images/serpent-prompt.txt)
-
-### 確認した操作
-
-ヒーローからのワープ、惑星の共鳴、ラボの3色・スキャン・分解・復元・リセット、ギャラリー詳細・お気に入り、Wキー、音のオン/オフ、全画面、SUPERNOVAの長押し/Enter、375px/390px画面のタップ、OSの低モーション設定の途中切り替えをブラウザで確認。
+`.openai/hosting.json` は既存のSites公開先を示す設定です。別環境への静的ホスティングでは `npm run build` の出力を利用できます。`node_modules/`、`dist/`、ローカル検証用の `.qa/` はGitの対象外です。
