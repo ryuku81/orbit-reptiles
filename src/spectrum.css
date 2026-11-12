@@ -1,0 +1,50 @@
+/* Pearlescent serpent cover and live specimen displays. */
+.serpent-cover .hero-visual{inset:-4% -6% 0 29%;overflow:visible;transform-origin:65% 50%}
+.serpent-cover h1{font-size:clamp(70px,7.4vw,118px);line-height:1.04;letter-spacing:-.06em;margin-bottom:30px}
+.serpent-cover h1>span{font-size:.69em;white-space:nowrap;letter-spacing:-.055em;background:linear-gradient(110deg,#fff0fe,#d5b4ff 35%,#c5e5ff 70%,#ffcff1);background-clip:text;-webkit-background-clip:text}
+.serpent-cover .hero-content{width:66%;padding-top:110px}
+.serpent-art{position:absolute;top:50%;right:-3%;width:112%;aspect-ratio:3/2;translate:0 -50%;mask-image:radial-gradient(ellipse 66% 70% at 54% 49%,#000 45%,transparent 92%),linear-gradient(0deg,transparent,#000 12%,#000 88%,transparent);mask-composite:intersect;animation:serpent-levitate 12s ease-in-out infinite}
+.serpent-art>img{width:100%;height:100%;object-fit:contain}
+.serpent-radiance{position:absolute;inset:0;opacity:0;transition:opacity .7s;pointer-events:none}
+.serpent-radiance[data-ready=true]{opacity:1}
+.serpent-radiance canvas{display:block;width:100%;height:100%}
+.serpent-aura{position:absolute;inset:15% 5% 10% 7%;background:radial-gradient(ellipse,#d677ff16,transparent 63%);mix-blend-mode:screen;animation:serpent-aura 17s linear infinite;pointer-events:none}
+.serpent-cover .orbit-one{opacity:.32;left:0;width:94%;top:29%;height:37%}
+.serpent-cover .orbit-two{opacity:.23;left:10%;width:77%}
+.serpent-cover .orbit-three{opacity:.2;left:0;width:99%}
+.serpent-cover .specimen-label{right:7%;bottom:104px}
+.serpent-cover .hero-japanese{font-weight:500}
+.specimen-loading{position:absolute;inset:0;display:grid;place-items:center;font-size:8px;letter-spacing:.2em;color:#b496d1;background:radial-gradient(ellipse at 50% 70%,#492c6a66,transparent 70%)}
+.specimen-live{position:absolute;left:14px;bottom:14px;display:flex;align-items:center;gap:5px;color:#c8b5db;font-size:7px;letter-spacing:.14em;pointer-events:none;transition:opacity .3s}
+.specimen-live>span{width:3px;height:3px;border-radius:50%;background:#dab2f5;box-shadow:0 0 7px #dba2ff}
+.animal-card:hover .specimen-live{opacity:0}
+.animal-image:after{background:linear-gradient(180deg,#17082438,transparent 24%,transparent 90%,#10051a22)}
+.animal-image .view-label{color:#f4dcff;text-shadow:0 1px 7px #080311}
+.detail-specimen{position:relative;min-width:0;min-height:560px;background:radial-gradient(ellipse at 50% 68%,#3b215a77,transparent 65%);border-radius:12px 0 0 12px;overflow:hidden}
+.detail-orbit-hint{position:absolute;bottom:28px;left:0;right:0;text-align:center;color:#cab4dc;font-size:9px;letter-spacing:.04em;pointer-events:none}
+.detail-specimen>div{position:absolute!important;inset:0}
+.finale-serpent img{filter:brightness(1.09) saturate(1.2)}
+@keyframes serpent-levitate{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-16px) rotate(1deg)}}
+@keyframes serpent-aura{to{filter:hue-rotate(360deg)}}
+@media(min-width:1600px){.serpent-cover .hero-content{padding-top:135px}}
+@media(max-width:1100px){.serpent-cover h1{font-size:92px}.serpent-cover .hero-content{padding-top:110px}.serpent-cover .hero-visual{left:25%;right:-12%}.serpent-art{width:126%;right:-7%}}
+@media(max-width:800px){.serpent-cover h1{font-size:83px}.serpent-cover .hero-visual{left:21%;right:-20%}.serpent-cover .hero-content{padding-top:90px;width:75%}}
+@media(max-width:640px){
+ .serpent-cover{min-height:900px}
+ .serpent-cover .hero-content{padding-top:43px;width:100%}
+ .serpent-cover h1{font-size:clamp(59px,17vw,86px);line-height:1.03;margin-top:25px;margin-bottom:24px}
+ .serpent-cover h1>span{font-size:.615em;letter-spacing:-.055em}
+ .serpent-cover .hero-japanese{font-size:18px}
+ .serpent-cover .hero-visual{inset:204px -16% 215px -16%;overflow:visible;z-index:0}
+ .serpent-art{top:49%;width:128%;right:-15%;mask-image:radial-gradient(ellipse 64% 71% at 53% 51%,#000 45%,transparent 91%),linear-gradient(0deg,transparent,#000 13%,#000 87%,transparent);mask-composite:intersect}
+ .serpent-cover .hero-description{margin-top:265px;font-size:10px;text-shadow:0 1px 4px #0b021f,0 0 12px #0b021f}
+ .serpent-cover .hero-ctas{gap:18px;margin-top:24px}
+ .serpent-cover .hero-ctas .button-primary{gap:22px;padding:15px 18px}
+ .serpent-cover .orbit-one{top:28%;left:3%;width:97%;height:44%}
+ .specimen-live{left:10px;bottom:10px;font-size:6px}
+ .detail-specimen{min-height:330px;border-radius:8px 8px 0 0}
+ .detail-orbit-hint{bottom:20px;font-size:8px}
+ .reptile-lab .lab-color-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .reptile-lab .lab-color-options button{font-size:10px;min-height:44px}
+}
+@media(prefers-reduced-motion:reduce){.serpent-art,.serpent-aura{animation:none}.serpent-radiance{transition:none}}

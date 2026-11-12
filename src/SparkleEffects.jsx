@@ -23,15 +23,23 @@ export default function SparkleEffects({ paused = false }) {
     const reduced = matchMedia('(prefers-reduced-motion: reduce)');
     let width = 1, height = 1, mobile = false, frame = 0, previous = 0, clock = 0;
     let disposed = false, lastPointerTime = 0, nextMeteor = 2.5, warp = null;
+    let scrollY = window.scrollY, lastScrollTime = performance.now(), scrollSpeed = 0, flightEnergy = 0;
     let pointer = null;
-    const particles = [], rings = [], meteors = [];
+    const particles = [], rings = [], meteors = [], scrollScenes = [];
+    const scrollSections = [
+      { id: 'reptile-lab', effect: 'orbital-gateway', top: Infinity, fired: -100 },
+      { id: 'collection', effect: 'meteor-shower', top: Infinity, fired: -100 },
+      { id: 'universe', effect: 'serpent-constellation', top: Infinity, fired: -100 },
+      { id: 'supernova', effect: 'aurora-ribbons', top: Infinity, fired: -100 },
+    ];
     // Repeatable ray geometry avoids reallocating a large effect on every warp.
     let seed = 92812;
     const random = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
     const rays = Array.from({ length: 150 }, () => ({ angle: random() * Math.PI * 2, depth: random(), speed: .45 + random() * .65, length: .02 + random() * .06, color: COLORS[Math.floor(random() * COLORS.length)] }));
     const enabled = () => !disposed && !pausedRef.current && !reduced.matches && !document.hidden;
     const clear = () => {
-      particles.length = 0; rings.length = 0; meteors.length = 0; warp = null; pointer = null;
+      particles.length = 0; rings.length = 0; meteors.length = 0; scrollScenes.length = 0;
+      warp = null; pointer = null; scrollSpeed = 0; flightEnergy = 0;
       context.clearRect(0, 0, width, height);
     };
     const isTextInput = target => target instanceof Element && !!target.closest('input, textarea, select, [contenteditable="true"]');
@@ -66,6 +74,38 @@ export default function SparkleEffects({ paused = false }) {
       const value = event.detail?.duration;
       warp = { start: clock, duration: clamp(Number.isFinite(value) ? value : 2200, 1000, 5000) / 1000, x: width * .53, y: height * .46 };
       burst(warp.x, warp.y, .8);
+    };
+    const measureScrollSections = () => {
+      for (const section of scrollSections) {
+        const element = document.getElementById(section.id);
+        section.top = element ? element.getBoundingClientRect().top + window.scrollY - innerHeight * .58 : Infinity;
+      }
+    };
+    const beginScrollScene = section => {
+      section.fired = clock;
+      window.dispatchEvent(new CustomEvent('orbit:scroll-effect', { detail: { id: section.id, effect: section.effect } }));
+      if (section.effect === 'meteor-shower') {
+        // A staggered family of comets, released by entering the collection.
+        for (let i = 0; i < (mobile ? 5 : 8); i++) {
+          meteors.push({ x: width * (.35 + random() * .7), y: -height * .12 + random() * height * .25,
+            age: -i * .16, duration: 2.5, length: mobile ? 155 : 270,
+            vx: -width * .32, vy: height * .34, ceremonial: true });
+        }
+      } else {
+        if (scrollScenes.length >= 2) scrollScenes.shift();
+        scrollScenes.push({ kind: section.effect, age: 0, duration: section.effect === 'serpent-constellation' ? 5.2 : 3.6 });
+      }
+    };
+    const onScroll = () => {
+      const now = performance.now(), next = window.scrollY, delta = next - scrollY;
+      if (enabled()) {
+        scrollSpeed = clamp(Math.abs(delta) / Math.max((now - lastScrollTime) / 1000, .016) / 1600, 0, 1);
+        for (const section of scrollSections) {
+          // A single effect per section crossing, with a cooldown for trackpad reversals.
+          if (scrollY < section.top && next >= section.top && clock - section.fired > 8) beginScrollScene(section);
+        }
+      }
+      scrollY = next; lastScrollTime = now;
     };
     const onPointer = event => {
       if (!enabled() || event.pointerType === 'touch' || isTextInput(event.target)) return;
@@ -149,6 +189,7 @@ export default function SparkleEffects({ paused = false }) {
       }
       for (let i = meteors.length - 1; i >= 0; i--) {
         const meteor = meteors[i]; meteor.age += dt;
+        if (meteor.age < 0) continue;
         if (meteor.age > meteor.duration) { meteors.splice(i, 1); continue; }
         const t = meteor.age / meteor.duration, alpha = Math.sin(t * Math.PI) * .65;
         const x = meteor.x + meteor.vx * meteor.age, y = meteor.y + meteor.vy * meteor.age;
@@ -158,8 +199,99 @@ export default function SparkleEffects({ paused = false }) {
         gradient.addColorStop(.16, `rgba(208,158,255,${alpha * .6})`);
         gradient.addColorStop(1, 'rgba(184,125,255,0)');
         context.beginPath(); context.moveTo(x, y); context.lineTo(tx, ty);
-        context.strokeStyle = gradient; context.lineWidth = 1.2; context.stroke();
-        drawGlint(x, y, 1.6, .4, '239,213,255', alpha);
+        context.strokeStyle = gradient; context.lineWidth = meteor.ceremonial ? 1.7 : 1.2; context.stroke();
+        drawGlint(x, y, meteor.ceremonial ? 2.8 : 1.6, .4, '239,213,255', alpha);
+      }
+    };
+    const drawScrollFlight = dt => {
+      if (performance.now() - lastScrollTime > 90) scrollSpeed *= Math.exp(-dt * 7);
+      flightEnergy += (scrollSpeed - flightEnergy) * (1 - Math.exp(-dt * 5));
+      if (flightEnergy < .015 || warp) return;
+      const reach = Math.hypot(width, height) * .7;
+      const cx = width * (.5 + Math.sin(scrollY * .00025) * .08), cy = height * .44;
+      const count = mobile ? 32 : 64;
+      for (let i = 0; i < count; i++) {
+        const ray = rays[i], depth = (ray.depth + scrollY * .00017 * ray.speed) % 1;
+        const radius = 35 + depth * depth * reach;
+        const length = (8 + depth * 70) * flightEnergy;
+        const c = Math.cos(ray.angle), s = Math.sin(ray.angle);
+        const x = cx + c * radius, y = cy + s * radius;
+        const tx = cx + c * (radius - length), ty = cy + s * (radius - length);
+        const alpha = Math.sin(depth * Math.PI) * flightEnergy * .45;
+        const gradient = context.createLinearGradient(tx, ty, x, y);
+        gradient.addColorStop(0, `rgba(${ray.color},0)`);
+        gradient.addColorStop(1, `rgba(${ray.color},${alpha})`);
+        context.strokeStyle = gradient; context.lineWidth = .6 + depth * .7;
+        context.beginPath(); context.moveTo(tx, ty); context.lineTo(x, y); context.stroke();
+      }
+    };
+    const drawScrollScenes = dt => {
+      for (let i = scrollScenes.length - 1; i >= 0; i--) {
+        const scene = scrollScenes[i]; scene.age += dt;
+        const t = scene.age / scene.duration;
+        if (t >= 1) { scrollScenes.splice(i, 1); continue; }
+        const alpha = smooth(Math.min(t / .18, 1)) * smooth(Math.min((1 - t) / .3, 1));
+        context.save();
+        if (scene.kind === 'orbital-gateway') {
+          const cx = width * .55, cy = height * .66;
+          const radius = Math.min(width, height) * (.16 + smooth(t) * .54);
+          // Three intersecting orbits open smoothly as the 3D animal arrives.
+          for (let ring = 0; ring < 3; ring++) {
+            const angle = -.7 + ring * .8 + t * .34;
+            context.strokeStyle = `rgba(${COLORS[ring]},${alpha * (.27 - ring * .035)})`;
+            context.lineWidth = ring === 0 ? 1.3 : .8;
+            context.shadowColor = '#d2a1ff'; context.shadowBlur = mobile ? 5 : 12;
+            context.beginPath(); context.ellipse(cx, cy, radius * (1 + ring * .11), radius * .36, angle, 0, Math.PI * 2); context.stroke();
+            const orbit = t * Math.PI * 2 + ring * 2.1;
+            const px = Math.cos(orbit) * radius * (1 + ring * .11), py = Math.sin(orbit) * radius * .36;
+            drawGlint(cx + px * Math.cos(angle) - py * Math.sin(angle), cy + px * Math.sin(angle) + py * Math.cos(angle), 3.8, t, COLORS[ring], alpha * .8);
+          }
+        } else if (scene.kind === 'serpent-constellation') {
+          const cx = width * (mobile ? .48 : .26), cy = height * .56;
+          const scale = Math.min(width * (mobile ? .7 : .35), height * .54);
+          const total = 42, visible = Math.min(total, Math.floor(t * total * 2.8));
+          const point = index => {
+            const q = index / (total - 1);
+            return { x: cx + Math.sin(q * Math.PI * 3.4 - .8) * scale * (.23 - q * .08), y: cy + (q - .5) * scale * .95 };
+          };
+          context.lineWidth = .75; context.strokeStyle = `rgba(199,203,255,${alpha * .38})`;
+          context.beginPath();
+          for (let n = 0; n < visible; n++) {
+            const p = point(n);
+            if (n === 0) context.moveTo(p.x, p.y); else context.lineTo(p.x, p.y);
+          }
+          context.stroke();
+          for (let n = 0; n < visible; n += 2) {
+            const p = point(n), pulse = .65 + Math.sin(clock * 2 + n) * .25;
+            drawGlint(p.x, p.y, n === 0 ? 3.6 : 1.1 + (n % 3) * .45, .4, COLORS[n % COLORS.length], alpha * pulse);
+          }
+          // Two bright eyes and a small triangular head make the star serpent readable.
+          if (visible > 3) {
+            const p = point(0);
+            context.strokeStyle = `rgba(229,194,255,${alpha * .55})`;
+            context.beginPath(); context.moveTo(p.x - 9, p.y - 7); context.lineTo(p.x + 12, p.y - 5); context.lineTo(p.x + 6, p.y + 12); context.closePath(); context.stroke();
+            drawGlint(p.x - 3, p.y - 2, 1.5, 0, '228,206,255', alpha);
+          }
+        } else if (scene.kind === 'aurora-ribbons') {
+          for (let ribbon = 0; ribbon < 5; ribbon++) {
+            const gradient = context.createLinearGradient(0, height * .3, width, height * .75);
+            gradient.addColorStop(0, `rgba(138,195,255,0)`);
+            gradient.addColorStop(.35, `rgba(173,145,255,${alpha * .20})`);
+            gradient.addColorStop(.64, `rgba(255,171,235,${alpha * .32})`);
+            gradient.addColorStop(1, 'rgba(204,150,255,0)');
+            context.strokeStyle = gradient; context.lineWidth = 1 + ribbon * .35;
+            context.shadowColor = '#d9a3ff'; context.shadowBlur = mobile ? 5 : 10;
+            context.beginPath();
+            for (let n = 0; n <= 64; n++) {
+              const q = n / 64;
+              const x = q * width;
+              const y = height * (.40 + ribbon * .045 + Math.sin(q * Math.PI * 2 + t * 3 + ribbon * .17) * .15);
+              if (n === 0) context.moveTo(x, y); else context.lineTo(x, y);
+            }
+            context.stroke();
+          }
+        }
+        context.restore();
       }
     };
     const drawWarp = () => {
@@ -200,7 +332,7 @@ export default function SparkleEffects({ paused = false }) {
       previous = now; clock += dt;
       context.clearRect(0, 0, width, height);
       context.globalCompositeOperation = 'lighter';
-      drawWarp(); drawMeteors(dt); drawRings(dt); drawParticles(dt);
+      drawScrollFlight(dt); drawScrollScenes(dt); drawWarp(); drawMeteors(dt); drawRings(dt); drawParticles(dt);
       context.globalCompositeOperation = 'source-over';
       frame = requestAnimationFrame(render);
     };
@@ -215,8 +347,11 @@ export default function SparkleEffects({ paused = false }) {
       canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr);
       context.setTransform(dpr, 0, 0, dpr, 0, 0);
       if (warp) { warp.x = width * .53; warp.y = height * .46; }
+      measureScrollSections();
     };
     const observer = new ResizeObserver(resize); observer.observe(canvas);
+    const pageObserver = new ResizeObserver(measureScrollSections); pageObserver.observe(document.body);
+    window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('pointermove', onPointer, { passive: true });
     window.addEventListener('pointerout', onPointerLeave, { passive: true });
     window.addEventListener('click', onClick, { passive: true });
@@ -226,7 +361,8 @@ export default function SparkleEffects({ paused = false }) {
     reduced.addEventListener('change', refresh);
     refreshRef.current = refresh; resize(); refresh();
     return () => {
-      disposed = true; cancelAnimationFrame(frame); observer.disconnect(); clear(); refreshRef.current = null;
+      disposed = true; cancelAnimationFrame(frame); observer.disconnect(); pageObserver.disconnect(); clear(); refreshRef.current = null;
+      window.removeEventListener('scroll', onScroll);
       window.removeEventListener('pointermove', onPointer); window.removeEventListener('pointerout', onPointerLeave);
       window.removeEventListener('click', onClick); window.removeEventListener('orbit:burst', onBurst); window.removeEventListener('orbit:warp', onWarp);
       document.removeEventListener('visibilitychange', refresh); reduced.removeEventListener('change', refresh);

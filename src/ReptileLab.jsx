@@ -5,6 +5,7 @@ import { Cube, Scan, Sparkle, ArrowsOut, ArrowCounterClockwise, Hand, ArrowUpRig
 import './reptile-lab.css';
 const ReptileScene = lazy(() => import('./ReptileScene.jsx'));
 const palettes = [
+  { id: 'natural', label: 'ナチュラル', english: 'NATURAL', color: '#9ac986' },
   { id: 'amethyst', label: 'アメジスト', english: 'AMETHYST', color: '#bf7aff' },
   { id: 'nebula', label: 'ネビュラ', english: 'NEBULA', color: '#ff83c6' },
   { id: 'stardust', label: 'スターダスト', english: 'STARDUST', color: '#77e5ff' },
@@ -14,7 +15,7 @@ export default function ReptileLab({ paused = false }) {
   const ref = useRef(null);
   const reduced = useMotionPreference();
   const [loaded, setLoaded] = useState(false);
-  const [colorMode, setColorMode] = useState('amethyst');
+  const [colorMode, setColorMode] = useState('natural');
   const [scan, setScan] = useState(false);
   const [explode, setExplode] = useState(false);
   const [resetKey, setResetKey] = useState(0);
@@ -31,19 +32,19 @@ export default function ReptileLab({ paused = false }) {
     const { left, top, width, height } = event.currentTarget.getBoundingClientRect();
     window.dispatchEvent(new CustomEvent('orbit:burst', { detail: { x: left + width / 2, y: top + height / 2, power: .65 } }));
   };
-  const reset = () => { setColorMode('amethyst'); setScan(false); setExplode(false); setResetKey(key => key + 1); };
+  const reset = () => { setColorMode('natural'); setScan(false); setExplode(false); setResetKey(key => key + 1); };
   return <section id="reptile-lab" className="reptile-lab" ref={ref} style={{ '--lab-accent': palette.color }} aria-labelledby="reptile-lab-title">
     <div className="lab-introduction">
       <motion.div className="lab-heading" initial={paused || reduced ? false : { opacity: 0, y: 35 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: paused || reduced ? 0 : .8 }}>
         <span className="lab-eyebrow"><Sparkle size={16} weight="light"/>LIVING STARDUST</span>
         <h2 id="reptile-lab-title">星から、<span>生まれた。</span></h2>
-        <p>触れる。色を変える。星屑にほどく。<br/>小さな生命を、あなたの想像で遊ばせよう。</p>
+        <p>触れる。色を変える。星屑にほどく。<br/>息づく鱗を、あらゆる角度から眺めよう。</p>
       </motion.div>
       <div className="lab-invitation"><Cube size={20}/><span>触れるたび、違う表情。</span><ArrowUpRight size={16}/></div>
     </div>
     <div className={`lab-stage ${scan ? 'lab-scanning' : ''} ${explode ? 'lab-dispersed' : ''}`}>
       <div className="lab-stage-halo" aria-hidden="true"/>
-      <div className="lab-coordinate" aria-hidden="true"><span>ORBIT SPECIMEN</span><strong>{palette.english}</strong><span>{explode ? 'STARDUST FORM' : scan ? 'SPECTRAL SCAN' : 'CRYSTALLINE LIFE'}</span></div>
+      <div className="lab-coordinate" aria-hidden="true"><span>ORBIT SPECIMEN</span><strong>{palette.english}</strong><span>{explode ? 'STARDUST FORM' : scan ? 'SPECTRAL SCAN' : 'LIVING CHAMELEON'}</span></div>
       <div className="lab-canvas" aria-label="色や形を変えて遊べる3D爬虫類">
         {loaded && <Suspense fallback={<div className="lab-loading"><Cube size={38}/><span>星屑が、生命になる。</span></div>}><ReptileScene key={resetKey} paused={paused || reduced} colorMode={colorMode} scan={scan} explode={explode} allowPageScroll/></Suspense>}
         {!loaded && <div className="lab-loading"><Cube size={38}/><span>星屑が、生命になる。</span></div>}
