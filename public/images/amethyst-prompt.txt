@@ -1,0 +1,10 @@
+Use case: stylized-concept
+Asset type: cinematic website hero, 1536x1024 landscape, a spectacular ultra-detailed purple reptile floating in deep space.
+Scene/backdrop: near-black plum cosmic void, faint violet nebulous light only around the subject. Leftmost 22% almost empty dark negative space for web typography.
+Subject: a graceful fantasy crested gecko with subtle chameleon influence, anatomically believable four-legged lizard, facing LEFT in three-quarter side profile. Elegant pointed head, jewel-like large glossy violet eye with pink iris and vertical pupil, fine crests above eyes and along the spine, exceptionally detailed tiny purple scales. Entire reptile visible, graceful long tail curves down and curls to the lower right. The reptile floats weightlessly with its feet lightly touching a SMALL rough amethyst crystal crescent underneath. No branch.
+Composition: animal occupies the right 72% of frame, large and striking; head around x=48%, y=33%, body extends to right, tail curls at x=84%, y=72%; leave breathing room around all edges. The body is the clear focus, not the crystal. 
+Style: photoreal high-end cinematic macro 3D creature render, very sharp fine detail, realistic reptile anatomy, elegant and beautiful, luxurious fantasy biology, not cartoon.
+Materials: rich amethyst, plum and iridescent lavender scales with jewel-like facets; violet dominates, absolutely NO green. Reflective silver highlights along individual scales, tiny occasional electric cyan and magenta edge reflections. Glossy eye with multiple physically believable catchlights.
+Lighting: dramatic purple rimlight, soft luminous lavender keylight on face and body, restrained pink backlighting, dense tiny sparkling stardust near the silhouette, a few fine sharp glints, luminous but not overexposed.
+Text: none.
+Avoid: any text, watermark, logo, UI, flat illustration, cartoon proportions, dragon wings, horns, extra legs, cropped head, excessive crystal coverage, bright grey background, green skin, plastic toy.

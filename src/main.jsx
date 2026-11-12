@@ -4,4 +4,5 @@ import '@fontsource-variable/space-grotesk';
 import App from './App.jsx';
 import './styles.css';
 import './cosmic.css';
+import './showcase.css';
 createRoot(document.getElementById('root')).render(<React.StrictMode><App /></React.StrictMode>);

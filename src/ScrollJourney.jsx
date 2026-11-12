@@ -1,5 +1,6 @@
+import useMotionPreference from './useMotionPreference.js';
 import { useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion, useReducedMotion, useScroll } from 'motion/react';
+import { AnimatePresence, motion, useScroll } from 'motion/react';
 import { ArrowUpRight, Sparkle } from '@phosphor-icons/react';
 import * as THREE from 'three';
 import './scroll-journey.css';
@@ -25,7 +26,7 @@ function PortalSculpture({ progress, paused }) {
     const host = hostRef.current;
     if (!host) return;
     let renderer, frame = 0, disposed = false, visible = false, lost = false;
-    let clock = 0, previous = 0, smoothProgress = 0.12;
+    let clock = 0, previous = 0, smoothProgress = 0.12, resonance = 0;
     const reduced = matchMedia('(prefers-reduced-motion: reduce)');
     const geometries = new Set(), materials = new Set(), cleanups = [];
     const geometry = g => { geometries.add(g); return g; };
@@ -56,9 +57,11 @@ function PortalSculpture({ progress, paused }) {
       const rig = new THREE.Group(); scene.add(rig);
       const planetMaterial = material(new THREE.ShaderMaterial({
         vertexShader: vertex,
+        uniforms: { uResonance: { value: 0 } },
         fragmentShader: `${noise}
+        uniform float uResonance;
         varying vec3 vPosition;varying vec3 vNormal;varying vec3 vView;
-        void main(){vec3 n=normalize(vNormal);vec3 p=vPosition;float gas=fbm(p*4.4);float fine=fbm(p*35.);float ridge=pow(abs(sin(p.y*16.+gas*7.)),7.);float light=max(dot(n,normalize(vec3(-.6,.65,1.))),0.);vec3 base=mix(vec3(.016,.012,.038),vec3(.12,.095,.22),gas);base+=vec3(.12,.055,.19)*ridge*.24;vec3 color=base*(.3+light*1.7)+(fine-.5)*.035;float edge=pow(1.-max(dot(n,normalize(vView)),0.),3.5);color+=vec3(.40,.22,.85)*edge*.9;gl_FragColor=vec4(color,1.);}`,
+        void main(){vec3 n=normalize(vNormal);vec3 p=vPosition;float gas=fbm(p*4.4);float fine=fbm(p*35.);float ridge=pow(abs(sin(p.y*16.+gas*7.)),7.);float light=max(dot(n,normalize(vec3(-.6,.65,1.))),0.);vec3 base=mix(vec3(.016,.012,.038),vec3(.12,.095,.22),gas);base+=vec3(.12,.055,.19)*ridge*.24;vec3 color=base*(.3+light*1.7)+(fine-.5)*.035;float edge=pow(1.-max(dot(n,normalize(vView)),0.),3.5);color+=vec3(.40,.22,.85)*edge*.9;color+=vec3(.52,.18,.8)*uResonance*(.3+edge);gl_FragColor=vec4(color,1.);}`,
       }));
       const planet = new THREE.Mesh(geometry(new THREE.SphereGeometry(1.16, 96, 64)), planetMaterial);
       rig.add(planet);
@@ -93,11 +96,11 @@ function PortalSculpture({ progress, paused }) {
         uniforms: { uTime: { value: 0 }, uProgress: { value: 0 } },
         vertexShader: 'varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
         fragmentShader: `varying vec2 vUv;uniform float uTime;uniform float uProgress;
-        void main(){float r=vUv.y;float a=vUv.x*6.28318;float lines=pow(.5+.5*sin(r*420.+sin(a*13.-uTime*.2)*1.6),9.);float strands=pow(.5+.5*sin(r*110.+sin(a*5.)*.8),5.);float edge=smoothstep(0.,.10,r)*(1.-smoothstep(.72,1.,r));float gap=1.-.65*smoothstep(.44,.46,r)*(1.-smoothstep(.47,.50,r));float light=.55+.45*sin(a+.8);vec3 color=mix(vec3(.42,.18,.9),vec3(1.,.58,.94),smoothstep(.1,.8,r));color=mix(color,vec3(.79,.78,1.),pow(light,5.));float alpha=edge*gap*(.06+lines*.43+strands*.12)*(.55+light*.5);gl_FragColor=vec4(color,alpha);}`,
+        void main(){float r=vUv.y;float a=vUv.x*6.28318;float lines=pow(.5+.5*sin(r*420.+sin(a*13.-uTime*.2)*1.6),9.);float strands=pow(.5+.5*sin(r*110.+sin(a*5.)*.8),5.);float edge=smoothstep(0.,.10,r)*(1.-smoothstep(.72,1.,r));float gap=1.-.65*smoothstep(.44,.46,r)*(1.-smoothstep(.47,.50,r));float light=.55+.45*sin(a+.8);vec3 color=mix(vec3(.42,.18,.9),vec3(1.,.58,.94),smoothstep(.1,.8,r));color=mix(color,vec3(.79,.78,1.),pow(light,5.));float alpha=edge*gap*(.06+lines*.43+strands*.12)*(.55+light*.5);gl_FragColor=vec4(color,alpha*1.16);}`,
         transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
       }));
       rings.add(new THREE.Mesh(bandGeometry, ringMaterial));
-      const hoopMaterial = material(new THREE.MeshBasicMaterial({ color: '#e5c6ff', transparent: true, opacity: .72 }));
+      const hoopMaterial = material(new THREE.MeshBasicMaterial({ color: '#e5c6ff', transparent: true, opacity: .86 }));
       for (const [radius, thickness] of [[1.46,.005],[1.53,.007],[2.49,.006],[2.54,.0025]]) {
         rings.add(new THREE.Mesh(geometry(new THREE.TorusGeometry(radius, thickness, 6, 340)), hoopMaterial));
       }
@@ -106,7 +109,7 @@ function PortalSculpture({ progress, paused }) {
       const orbitMaterial = material(new THREE.MeshBasicMaterial({ color: '#cfb4ff', transparent: true, opacity: .3 }));
       const orbit = new THREE.Mesh(orbitGeometry, orbitMaterial);
       outerOrbit.add(orbit); outerOrbit.rotation.set(.5,.65,.5);rig.add(outerOrbit);
-      const pointsCount = innerWidth < 640 ? 1150 : 2400;
+      const pointsCount = innerWidth < 640 ? 1300 : 3000;
       const points = [], seeds = [], sizes = [];
       let seed = 824;
       const random = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
@@ -146,7 +149,9 @@ function PortalSculpture({ progress, paused }) {
         planet.rotation.y = clock*.035 + smoothProgress*.85;
         outerOrbit.rotation.z = .5+smoothProgress*.65;
         const size = 1+Math.sin(smoothProgress*Math.PI)*.09;
-        rig.scale.setScalar(size);
+        rig.scale.setScalar(size + resonance*.1);
+        planetMaterial.uniforms.uResonance.value=resonance;
+        hoopMaterial.opacity=.78+resonance*.22;
         camera.position.z = 9.1 - Math.sin(smoothProgress*Math.PI)*1.15;
         crystals.forEach((crystal,i)=>{
           const a=crystal.userData.angle+clock*(.018+i*.003)+smoothProgress*.55,r=crystal.userData.radius;
@@ -161,10 +166,12 @@ function PortalSculpture({ progress, paused }) {
       const animate=now=>{
         frame=0;
         if(!isMoving()){previous=0;return;}
-        const delta=previous?Math.min((now-previous)/1000,.045):0;previous=now;clock+=delta;
+        const delta=previous?Math.min((now-previous)/1000,.045):0;previous=now;clock+=delta;resonance=Math.max(0,resonance-delta*.48);
         smoothProgress+=(progress.get()-smoothProgress)*.065;
         frameState();render();frame=requestAnimationFrame(animate);
       };
+      const onResonate=()=>{if(frozen.current||reduced.matches)return;resonance=1;};
+      window.addEventListener('orbit:resonate',onResonate);cleanups.push(()=>window.removeEventListener('orbit:resonate',onResonate));
       const update=()=>{cancelAnimationFrame(frame);frame=0;previous=0;if(!frozen.current&&!reduced.matches)smoothProgress=progress.get();frameState();render();if(isMoving())frame=requestAnimationFrame(animate);};
       const resize=()=>{
         const {width,height}=host.getBoundingClientRect();if(!width||!height)return;
@@ -186,13 +193,14 @@ function PortalSculpture({ progress, paused }) {
 
 export default function ScrollJourney({ paused = false, onExplore }) {
   const section=useRef(null);
-  const reduced=useReducedMotion();
+  const reduced=useMotionPreference();
   const {scrollYProgress}=useScroll({target:section,offset:['start start','end end']});
   const [chapter,setChapter]=useState(0);
   const frozen=useRef(paused||reduced);
   useEffect(()=>{frozen.current=paused||reduced;if(!frozen.current){const p=scrollYProgress.get();setChapter(p<.33?0:p<.7?1:2);}},[paused,reduced,scrollYProgress]);
   useEffect(()=>scrollYProgress.on('change',p=>{if(!frozen.current)setChapter(p<.33?0:p<.7?1:2);}),[scrollYProgress]);
   const current=chapters[chapter];
+  const resonate=event=>{if(paused||reduced)return;window.dispatchEvent(new CustomEvent('orbit:resonate'));window.dispatchEvent(new CustomEvent('orbit:burst',{detail:{x:innerWidth*.7,y:innerHeight*.5,power:2.2}}));};
   return <section id="journey" ref={section} className={`journey-section ${reduced?'journey-reduced':''}`} aria-label="宇宙を旅するように、新しい生命と出会う">
     <div className="journey-sticky">
       <PortalSculpture progress={scrollYProgress} paused={paused||reduced}/>
@@ -203,7 +211,7 @@ export default function ScrollJourney({ paused = false, onExplore }) {
           <h2>{current.title}</h2>
           <p>{current.description}</p>
         </motion.div></AnimatePresence>
-        <button className="journey-explore" onClick={onExplore}>生体と出会う <ArrowUpRight size={19}/></button>
+        <button className="journey-explore" onClick={onExplore}>3Dラボへ <ArrowUpRight size={19}/></button><button className="journey-ignite" disabled={paused||reduced} onClick={resonate}><Sparkle size={15}/><span>惑星を共鳴させる</span></button>
         <div className="journey-chapters" aria-hidden="true">{chapters.map((item,i)=><span key={item.label} className={chapter===i?'journey-current':''}/>)}</div>
       </div>
       <div className="journey-orbit-label" aria-hidden="true"><span>BOUND BY CURIOSITY</span><span>自由に、惹かれ合う。</span></div>
