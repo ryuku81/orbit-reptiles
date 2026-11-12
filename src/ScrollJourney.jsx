@@ -47,7 +47,7 @@ function PortalSculpture({ progress, paused }) {
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });
       renderer.setClearColor(0x000000, 0);
-      renderer.setPixelRatio(Math.min(devicePixelRatio || 1, innerWidth < 640 ? 1.2 : 1.5));
+      renderer.setPixelRatio(Math.min(devicePixelRatio || 1, innerWidth < 640 ? 1.5 : 2));
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.05;
@@ -137,17 +137,21 @@ function PortalSculpture({ progress, paused }) {
         transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
       }));
       rings.add(new THREE.Points(dustGeometry, dustMaterial));
-      scene.add(new THREE.HemisphereLight('#f9f2ff', '#372654', .58));
-      const key = new THREE.DirectionalLight('#f3eaff', 1.65);key.position.set(-4,6,5);scene.add(key);
-      const rim = new THREE.DirectionalLight('#ba8cf7', 1.5);rim.position.set(4,-3,1);scene.add(rim);
+      scene.add(new THREE.HemisphereLight('#fff7ec', '#262035', .8));
+      const key = new THREE.DirectionalLight('#fff5e8', 2.1);key.position.set(-4,6,5);scene.add(key);
+      const rim = new THREE.DirectionalLight('#ba8cf7', 1.5);rim.position.set(4,2,-3);scene.add(rim);
       const reptiles = createOrbitalCreatures({
-        onReady: ({ count, id, animated }) => {
+        onReady: ({ count, id, speciesCount, animated }) => {
           host.dataset.orbitCreatures = String(count);
+          host.dataset[`${id}Count`]=String(speciesCount);
           host.dataset[id] = animated ? 'animated-mesh' : 'textured-mesh';
           trigger.current?.();
         },
         onError: id => { host.dataset.orbitAssetError = id; },
+
       });
+      host.dataset.surfaceCreatures=String(reptiles.surfaceCount);
+      host.dataset.surfaceSnakes=String(reptiles.surfaceSnakes);
       rig.add(reptiles.group); cleanups.push(() => reptiles.dispose());
       const crystals = [];
       const crystalMaterial = material(new THREE.MeshPhysicalMaterial({ color: '#bfa5eb', metalness: .72, roughness: .2, clearcoat: .85, flatShading: true, envMapIntensity: .16 }));
@@ -170,7 +174,7 @@ function PortalSculpture({ progress, paused }) {
         rig.scale.setScalar(size + resonance*.1);
         planetMaterial.uniforms.uResonance.value=resonance;
         hoopMaterial.opacity=.78+resonance*.22;
-        camera.position.z = 9.1 - Math.sin(smoothProgress*Math.PI)*1.15;
+        camera.position.z = 10.0 - Math.sin(smoothProgress*Math.PI)*.75;
         crystals.forEach((crystal,i)=>{
           const a=crystal.userData.angle+clock*(.018+i*.003)+smoothProgress*.55,r=crystal.userData.radius;
           crystal.position.set(Math.cos(a)*r,Math.sin(a)*r*.55,Math.sin(a)*.7);

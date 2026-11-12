@@ -86,3 +86,77 @@
 @media(max-width:640px){.serpent-cover{height:auto;min-height:900px}.serpent-cover .hero-visual{inset:204px -8% 220px -8%}.serpent-cover .serpent-art{width:min(128%,calc(150cqh - 96px));right:-16.5%;top:49%;mask-image:linear-gradient(90deg,transparent,#000 10%,#000 93%,transparent),linear-gradient(0deg,transparent,#000 5%,#000 90%,transparent)}.card-drag-hint{font-size:8px}.animal-info-top .save-button{width:36px;height:36px}}
 
 @media(min-width:641px) and (max-height:820px){.serpent-cover .hero-content{padding-top:clamp(12px,calc(100svh - 728px),80px)}.serpent-cover h1{font-size:clamp(64px,min(7.4vw,12svh),100px)}.serpent-cover .serpent-art{width:min(112%,calc(150cqh - 144px),calc(150svh - 300px));top:calc(50svh - 68px)}}
+
+/* Scroll-choreographed encounter: recoil, head-first approach, then passage. */
+.serpent-encounter{position:relative;height:220svh;min-height:1520px}
+.serpent-lunge-stage{position:sticky;top:0;height:100svh;min-height:660px;max-height:none;overflow:hidden}
+.serpent-lunge-stage .hero-visual{z-index:2;pointer-events:none}
+.serpent-lunge-stage .serpent-art{animation:none;will-change:transform,opacity}
+.serpent-lunge-stage .serpent-art>img{filter:brightness(1.05) saturate(1.12)}
+.serpent-lunge-stage .hero-content{z-index:3}
+.serpent-lunge-stage .serpent-aura{opacity:.35;animation:none}
+.serpent-lunge-stage .orbit{opacity:.16}
+.serpent-lunge-stage .specimen-label,.serpent-lunge-stage .hero-bottom,.serpent-lunge-stage .voyage-invitation{z-index:4}
+/* Keep all animal surfaces subdued without dimming page text or controls. */
+.official-model-viewer>iframe{filter:brightness(.72) saturate(.62)}
+.finale-living-art>img{filter:brightness(1.14) saturate(1.08)!important}
+.finale-serpent{mix-blend-mode:normal;filter:drop-shadow(0 0 28px #bd79ef24)}
+.finale-aurora{background:radial-gradient(ellipse at 28% 48%,#9c42c52b,transparent 58%)}
+.serpent-encounter-reduced{height:auto;min-height:0}
+.serpent-encounter-reduced .serpent-lunge-stage{position:relative}
+@media(max-width:640px){
+ .serpent-encounter{height:250svh;min-height:1900px}
+ .serpent-lunge-stage{height:900px;min-height:900px;top:min(0px,calc(100svh - 900px))}
+ .serpent-lunge-stage .hero-visual{inset:204px -8% 220px -8%}
+ .serpent-encounter-reduced{height:auto;min-height:0}
+ .serpent-encounter-reduced .serpent-lunge-stage{top:0}
+}
+@media(prefers-reduced-motion:reduce){
+ .serpent-encounter{height:auto;min-height:0}
+ .serpent-lunge-stage{position:relative;top:0}
+ .serpent-lunge-stage .serpent-art{will-change:auto}
+}
+
+/* Volumetric hero: the jaw and body animate in 3D; the canvas stays in place. */
+.serpent-encounter-3d{height:260svh;min-height:1700px}
+.serpent-3d-stage{height:100svh;min-height:640px;top:0;background:linear-gradient(90deg,#09031c88,transparent 67%)}
+.serpent-3d-stage .hero-visual{inset:0;overflow:visible;mix-blend-mode:normal;container-type:normal;z-index:2}
+.serpent-3d-stage .hero-content{padding-top:clamp(50px,8svh,92px);width:62%;padding-bottom:0;z-index:3}
+.serpent-3d-stage h1{font-size:clamp(72px,6.7vw,108px);margin:24px 0;line-height:1.04}
+.serpent-3d-stage h1>span{font-size:.64em}
+.serpent-3d-stage .hero-japanese{font-size:23px;margin-bottom:17px}
+.serpent-3d-stage .hero-description{line-height:2;font-size:12px}
+.serpent-3d-stage .hero-ctas{margin-top:26px}
+.serpent-poster{position:absolute;inset:0;pointer-events:none;transition:opacity .8s;opacity:1}
+.serpent-poster img{position:absolute;width:min(75vw,112svh);height:auto;right:-3%;top:42%;translate:0 -50%;mask-image:radial-gradient(ellipse 64% 67% at 54% 49%,#000 38%,transparent 94%)}
+.serpent-3d-stage.is-3d-ready .serpent-poster{opacity:0}
+.serpent-3d-stage .specimen-label{bottom:116px;right:6%}
+.serpent-3d-stage .voyage-invitation{bottom:58px}
+.serpent-3d-stage .hero-bottom{bottom:28px}
+.serpent-encounter-3d.serpent-encounter-reduced{height:auto;min-height:0}
+@media(min-width:641px) and (max-height:820px){
+ .serpent-3d-stage .hero-content{padding-top:25px}
+ .serpent-3d-stage h1{font-size:clamp(64px,6.2vw,88px);margin:20px 0}
+ .serpent-3d-stage .hero-japanese{font-size:21px}
+ .serpent-3d-stage .hero-description{font-size:11px}
+ .serpent-3d-stage .hero-ctas{margin-top:22px}
+}
+@media(max-width:640px){
+ .serpent-encounter-3d{height:270svh;min-height:1740px}
+ .serpent-3d-stage{height:100svh;min-height:640px;top:0}
+ .serpent-3d-stage .hero-content{position:absolute;inset:0;height:100%;padding:26px 6% 0;width:100%}
+ .serpent-3d-stage h1{font-size:clamp(54px,15.7vw,75px);margin:18px 0 15px}
+ .serpent-3d-stage h1>span{font-size:.6em}
+ .serpent-3d-stage .hero-japanese{font-size:17px;margin-bottom:0}
+ .serpent-3d-stage .hero-description{display:none}
+ .serpent-3d-stage .hero-ctas{position:absolute;left:6%;bottom:174px;gap:15px;margin:0}
+ .serpent-3d-stage .hero-ctas .button-primary{min-height:46px;padding:12px 14px;font-size:10px;gap:13px}
+ .serpent-3d-stage .hero-ctas .button-text{font-size:10px}
+ .serpent-3d-stage .cube-circle{width:31px;height:31px}
+ .serpent-3d-stage .specimen-label{display:none}
+ .serpent-3d-stage .voyage-invitation{left:50%;bottom:120px;translate:-50% 0}
+ .serpent-3d-stage .hero-bottom{display:none}
+ .serpent-poster img{width:132%;right:-17%;top:50%}
+ .serpent-encounter-3d.serpent-encounter-reduced{height:auto;min-height:0}
+}
+@media(prefers-reduced-motion:reduce){.serpent-poster{transition:none}.serpent-encounter-3d{height:auto;min-height:0}.serpent-3d-stage{position:relative;top:0}}

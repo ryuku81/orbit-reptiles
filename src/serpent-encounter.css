@@ -1,0 +1,4 @@
+.serpent-webgl-encounter{position:absolute;inset:0;pointer-events:none;isolation:isolate;opacity:0}
+.serpent-webgl-encounter[data-ready=true]{opacity:1}
+.serpent-webgl-encounter canvas{display:block;width:100%;height:100%;outline:none}
+@media(prefers-reduced-motion:reduce){.serpent-webgl-encounter{transition:none}}

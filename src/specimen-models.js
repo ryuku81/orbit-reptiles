@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // Original, fully volumetric animal studies. The surface maps are generated from
 // seeded patterns; no photograph or billboard is used for these specimens.
@@ -125,16 +126,17 @@ function irisMap(species) {
   const m = new THREE.CanvasTexture(c); m.colorSpace = THREE.SRGBColorSpace; return m;
 }
 
-export function createSpecimen(species = 'lg') {
+export function createSpecimen(species = 'lg', { nocturnal = false, tint = '#384143' } = {}) {
   if (!palettes[species]) species = 'lg';
   const group = new THREE.Group(), body = new THREE.Group(); group.add(body);
+  const legGroups = []; let activeParent = body;
   const maps = skinMaps(species), headMaps = skinMaps(species, true);
   const skin = new THREE.MeshPhysicalMaterial({ ...maps, roughness: .76, metalness: 0, bumpScale: .023, clearcoat: .06, clearcoatRoughness: .6 });
   const headSkin = new THREE.MeshPhysicalMaterial({ ...headMaps, roughness: .73, bumpScale: .018, clearcoat: .08, clearcoatRoughness: .55 });
   const cream = new THREE.MeshStandardMaterial({ color: palettes[species][1], roughness: .78, bumpMap: maps.bumpMap, bumpScale: .012 });
   const dark = new THREE.MeshStandardMaterial({ color: '#382d25', roughness: .9 });
   const nail = new THREE.MeshStandardMaterial({ color: '#bfb092', roughness: .5 });
-  function mesh(geometry, material, position, scale, parent = body) {
+  function mesh(geometry, material, position, scale, parent = activeParent) {
     const m = new THREE.Mesh(geometry, material); if (position) m.position.set(...position); if (scale) m.scale.set(...scale); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m;
   }
   const sphere = new THREE.SphereGeometry(1, 24, 18);
@@ -158,6 +160,7 @@ export function createSpecimen(species = 'lg') {
         [[.56,.29,side*.20],[.92,.15,side*(dragon?.73:.54)],[.61,.06,side*(dragon?.88:.76)],[.73,.035,side*(dragon?.99:.88)]],
       ];
       legs.forEach((points, index)=>{
+        const limb=new THREE.Group();body.add(limb);activeParent=limb;
         mesh(tube(points,[index?.16:dragon?.15:.115,dragon?.155:.125,.068,.045],44,18),skin);
         const foot = points.at(-1);
         mesh(sphere,skin,[foot[0],foot[1],foot[2]],[.12,.045,.105]);
@@ -169,6 +172,9 @@ export function createSpecimen(species = 'lg') {
           if(crest)mesh(sphere,cream,end,[.035,.014,.047]);
           else mesh(tube([end,[end[0]-.015,.02,end[2]+side*.04],[end[0]-.025,.032,end[2]+side*.065]],[.012,.008,.001],8,6),nail);
         }
+        const hip=new THREE.Vector3(...points[0]);limb.position.copy(hip);
+        for(const child of limb.children)child.position.sub(hip);
+        legGroups.push({limb,side,index});activeParent=body;
       });
     }
   }
@@ -215,5 +221,45 @@ export function createSpecimen(species = 'lg') {
     }
     scales.castShadow=true;body.add(scales);
   }
-  group.userData={body,species}; return group;
+  if(nocturnal){
+    skin.color.set(tint);headSkin.color.set(tint).multiplyScalar(1.08);cream.color.set('#30352f');nail.color.set('#535a52');
+    skin.roughness=.87;headSkin.roughness=.84;
+  }
+  // Merge static pieces by material, retaining four independently hinged legs.
+  // This keeps the detailed toes and scale relief to a few draw calls per limb.
+  const retiredGeometry=new Set();
+  for(const parent of [body,...legGroups.map(l=>l.limb)]){
+    const buckets=new Map();
+    for(const child of [...parent.children]){
+      if(!child.isMesh||child.isInstancedMesh)continue;
+      retiredGeometry.add(child.geometry);child.updateMatrix();const baked=child.geometry.clone().applyMatrix4(child.matrix);
+      if(!buckets.has(child.material))buckets.set(child.material,[]);
+      buckets.get(child.material).push(baked);parent.remove(child);
+    }
+    for(const [material,pieces] of buckets){
+      const merged=mergeGeometries(pieces);pieces.forEach(g=>g.dispose());
+      if(merged)parent.add(new THREE.Mesh(merged,material));
+    }
+  }
+  retiredGeometry.forEach(geometry=>geometry.dispose());
+  const tail=body.children.find(child=>child.isMesh&&!child.isInstancedMesh&&child.material===skin);
+  const tailPositions=tail?.geometry.attributes.position;
+  const rest=tailPositions?new Float32Array(tailPositions.array):null;
+  const tailIndices=[];
+  if(rest)for(let i=0;i<rest.length;i+=3)if(snake||rest[i]>.85)tailIndices.push(i);
+  group.userData={body,species,animate(time){
+    for(const {limb,side,index} of legGroups){
+      const phase=time*3.5+(side>0?Math.PI:0)+index*Math.PI;
+      limb.rotation.y=Math.sin(phase)*.22;
+      limb.rotation.x=side*Math.max(0,Math.sin(phase))*.13;
+      limb.rotation.z=Math.sin(phase+.8)*.045;
+    }
+    for(const i of tailIndices){
+      const weight=snake?THREE.MathUtils.smoothstep(rest[i],-1.45,.4):Math.min(1,(rest[i]-.85)/1.5);
+      tailPositions.array[i+2]=rest[i+2]+Math.sin(time*2.1-rest[i]*2)*.13*weight;
+      if(snake)tailPositions.array[i+1]=rest[i+1]+Math.sin(time*2.1-rest[i]*2+.8)*.035*weight;
+    }
+    if(tailPositions)tailPositions.needsUpdate=true;
+    body.scale.y=1+Math.sin(time*1.7)*.012;
+  }}; return group;
 }

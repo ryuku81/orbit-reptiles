@@ -15,7 +15,7 @@ export const MODELS = {
   },
   "lg": {
     "id": "lg",
-    "framingScale": 1.06,
+    "framingScale": .98,
     "uid": "c373eda1106d4543b42ae4b069906243",
     "title": "Leopard Gecko",
     "author": "Zyleck",
@@ -41,7 +41,7 @@ export const MODELS = {
   },
   "cg": {
     "id": "cg",
-    "framingScale": 1.42,
+    "framingScale": 1.32,
     "uid": "a749bd4af7844eb8ac9c1ed5e933a8c9",
     "title": "crested gecko",
     "author": "polynis",
@@ -54,7 +54,9 @@ export const MODELS = {
   },
   "bd": {
     "id": "bd",
-    "framingScale": 1.12,
+    "framingScale": 1.06,
+    "viewYaw": -.50,
+    "viewPitch": -.10,
     "uid": "c1e0b39951b84b0f8ab3c518a050f619",
     "title": "Bearded Dragon",
     "author": "Matthew Strong",

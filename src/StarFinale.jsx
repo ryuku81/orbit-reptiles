@@ -9,8 +9,8 @@ export default function StarFinale({ paused = false }) {
   const [charged, setCharged] = useState(false);
   const { scrollYProgress } = useScroll({ target: section, offset: ['start end', 'end start'] });
   const progress = useFrozenMotion(scrollYProgress, paused, .5);
-  const scale = useTransform(progress, [0, .5, 1], [.75, 1, 1.18]);
-  const rotate = useTransform(progress, [0, 1], [-12, 12]);
+  const scale = useTransform(progress, [0, .5, 1], [.88, 1.10, 1.20]);
+  const rotate = useTransform(progress, [0, 1], [-6, 6]);
   const y = useTransform(progress, [0, 1], [100, -90]);
   const finish = (automatic = false) => {
     const state = charge.current;

@@ -1,20 +1,33 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import './living-portrait.css';
+import { createPortraitMorphGeometry, portraitVertexShader } from './portrait-morph.js';
 
 // Separate local body, head and eye deformations keep the illustration alive
 // without turning its surrounding nebula into a moving rubber sheet.
 const fragment = `
 uniform sampler2D artwork;
+uniform sampler2D strikeArtwork;
+uniform float strikeReady;
 uniform float time;
 uniform float voyage;
 uniform float creature;
 uniform float eyelid;
 varying vec2 vUv;
+varying vec2 vStrikeUv;
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float region(vec2 uv,vec2 center,vec2 radius){vec2 p=(uv-center)/radius;return exp(-dot(p,p)*2.);}
 vec2 turn(vec2 p,float a){float c=cos(a),s=sin(a);return vec2(p.x*c-p.y*s,p.x*s+p.y*c);}
-vec3 sampleArt(vec2 uv){return texture2D(artwork,clamp(uv,.001,.999)).rgb;}
+float jawOpening(){return smoothstep(.12,.48,voyage)*strikeReady;}
+vec3 sampleArt(vec2 uv){
+  vec3 base=texture2D(artwork,clamp(uv,.001,.999)).rgb;
+  if(creature>.5)return base;
+  // Register the resting head during the first small jaw movement, then
+  // articulate a single texture through the rest of the opening and strike.
+  vec3 strike=texture2D(strikeArtwork,clamp(vStrikeUv+(uv-vUv),.001,.999)).rgb;
+  float headMask=(1.-smoothstep(.13,.21,abs(vUv.x-.31)))*(1.-smoothstep(.17,.25,abs(vUv.y-.72)));
+  return mix(base,strike,smoothstep(0.,.10,jawOpening())*headMask);
+}
 void main(){
   vec2 uv=vUv;
   float breath=sin(time*1.72)+.18*sin(time*3.44-.5)+.13*sin(time*.48+.6);
@@ -36,6 +49,8 @@ void main(){
     float tail=region(uv,vec2(.24,.22),vec2(.15,.23));
     uv.x-=sin(time*1.05+uv.y*7.)*.0078*tail;
     uv.y-=sin(time*.74+uv.x*9.)*.0025*tail;
+    float morphHead=(1.-smoothstep(.15,.23,abs(vUv.x-.32)))*(1.-smoothstep(.16,.24,abs(vUv.y-.75)));
+    uv=mix(uv,vUv,morphHead*smoothstep(.02,.12,voyage));
     eye=vec2(.3188,.7496);eyeRadius=vec2(.0101,.0183);
   }else{
     body=region(uv,vec2(.704,.627),vec2(.24,.185));
@@ -60,7 +75,7 @@ void main(){
   vec2 gazeTo=vec2(hash(vec2(stepIndex+1.,4.2)),hash(vec2(stepIndex+1.,9.1)))-.5;
   vec2 gaze=mix(gazeFrom,gazeTo,settle)*vec2(.42,.27);
   float iris=1.-smoothstep(.48,.94,length(e));
-  vec3 original=sampleArt(uv-gaze*eyeRadius*iris*(1.-eyelid));
+  vec3 original=sampleArt(uv-gaze*eyeRadius*iris*(1.-eyelid)*(creature<.5?1.-smoothstep(.02,.12,voyage):1.));
   float eyeShape=1.-smoothstep(.88,1.035,length(e));
   // Textured skin immediately outside the iris forms upper and lower lids.
   float edge=sqrt(max(0.,1.-e.x*e.x));
@@ -82,22 +97,13 @@ void main(){
     float skin=smoothstep(.105,.34,light)*(1.-smoothstep(.775,.815,uv.x));
     float orb=1.-smoothstep(.90,1.15,length((uv-vec2(.509,.419))/vec2(.041,.060)));
     skin*=1.-orb;
-    // A full saturated spectral revolution takes 6.7 seconds. Pearl tips stay white.
-    float phase=time*.15+uv.y*.28+uv.x*.075+voyage*.24;
-    vec3 spectrum=pow(.5+.5*cos(6.283185*(phase+vec3(0.,.333,.667))),vec3(1.55));
-    spectrum/=max(.02,max(spectrum.r,max(spectrum.g,spectrum.b)));
-    vec3 spectral=spectrum*(light*1.18+.15)+vec3(pow(light,4.)*.28);
-    color=mix(original,spectral,skin*.94);
-    float sweep=fract(uv.x*.36+uv.y*.64-time*.21);
-    float shine=exp(-pow((sweep-.5)*19.,2.))*skin;
-    color+=vec3(.50,.57,.70)*shine*.65;
-    vec2 grid=uv*vec2(83.,57.),cell=fract(grid)-.5;
-    float seed=hash(floor(grid));
-    float twinkle=pow(max(0.,sin(time*2.15+seed*39.)),25.);
-    float cross=exp(-abs(cell.x)*95.-abs(cell.y)*9.)+exp(-abs(cell.y)*95.-abs(cell.x)*9.);
-    color+=vec3(.70,.82,1.)*cross*twinkle*skin*step(.84,seed)*.9;
+    // Bright amethyst skin, with pale highlights that preserve individual scales.
+    color=mix(original,original*vec3(1.08,.86,1.16),skin*.50);
+    float sweep=fract(uv.x*.36+uv.y*.64-time*.075);
+    float shine=exp(-pow((sweep-.5)*24.,2.))*skin;
+    color+=vec3(.055,.025,.085)*shine;
   }else{
-    color*=1.+body*breath*.032;
+    color*=1.14+body*breath*.024;
     float jewel=pow(max(0.,light-.30)*1.3,3.);
     color+=vec3(.045,.085,.13)*jewel*(.5+.5*sin(time*1.2+uv.x*9.));
   }
@@ -137,18 +143,21 @@ export default function LivingPortraitEffect({ variant = 'serpent', paused = fal
     renderer.setPixelRatio(Math.min(devicePixelRatio, innerWidth < 640 ? 1.35 : 1.5));
     renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
     renderer.domElement.setAttribute('aria-hidden', 'true'); element.appendChild(renderer.domElement);
-    const uniforms = { artwork: { value: null }, time: { value: 0 }, voyage: { value: 0 }, creature: { value: variant === 'gecko' ? 1 : 0 }, eyelid: { value: 0 } };
-    const material = new THREE.ShaderMaterial({ uniforms, fragmentShader: fragment, vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}', depthTest: false });
-    const geometry = new THREE.PlaneGeometry(2, 2), scene = new THREE.Scene(), camera = new THREE.Camera();
+    const uniforms = { artwork: { value: null }, strikeArtwork: { value: null }, strikeReady: { value: 0 }, time: { value: 0 }, voyage: { value: 0 }, creature: { value: variant === 'gecko' ? 1 : 0 }, eyelid: { value: 0 } };
+    const material = new THREE.ShaderMaterial({ uniforms, fragmentShader: fragment, vertexShader: variant==='serpent'?portraitVertexShader:'varying vec2 vUv;varying vec2 vStrikeUv;void main(){vUv=uv;vStrikeUv=uv;gl_Position=vec4(position.xy,0.,1.);}', depthTest: false, side: THREE.DoubleSide });
+    const geometry = variant==='serpent'?createPortraitMorphGeometry():new THREE.PlaneGeometry(2, 2), scene = new THREE.Scene(), camera = new THREE.Camera();
     scene.add(new THREE.Mesh(geometry, material));
     let disposed = false, ready = false, visible = true, dirty = true, frame = 0, last = 0, elapsed = 0;
     const source = variant === 'gecko' ? '/images/amethyst-reptile.webp' : '/images/celestial-serpent.webp';
-    const texture = new THREE.TextureLoader().load(source, () => { if (disposed) return; uniforms.artwork.value = texture; ready = true; dirty = true; });
+    const texture = new THREE.TextureLoader().load(source, () => { if (disposed) return; uniforms.artwork.value = texture;if(!uniforms.strikeArtwork.value)uniforms.strikeArtwork.value=texture; ready = true; dirty = true; });
+    const strikeTexture=variant==='serpent'?new THREE.TextureLoader().load('/images/celestial-serpent-strike.png',()=>{
+      if(disposed)return;uniforms.strikeArtwork.value=strikeTexture;uniforms.strikeReady.value=1;dirty=true;
+    }):null;
     const resize = new ResizeObserver(() => { renderer.setSize(Math.max(1, element.clientWidth), Math.max(1, element.clientHeight)); dirty = true; }); resize.observe(element);
     const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; dirty = true; }); observer.observe(element);
     const animate = now => {
       frame = requestAnimationFrame(animate);
-      if (now - last < 33) return;
+      if (now - last < 14) return;
       const dt = Math.min((now - last) / 1000, .06); last = now;
       if (!ready || !visible || document.hidden) return;
       const { paused: stop, progress: travel } = state.current;
@@ -157,12 +166,12 @@ export default function LivingPortraitEffect({ variant = 'serpent', paused = fal
       if (!dirty) return;
       uniforms.time.value = elapsed;
       if (!still) uniforms.voyage.value = travel?.get() || 0;
-      uniforms.eyelid.value = blinkAt(elapsed, variant);
+      uniforms.eyelid.value = variant === 'serpent' ? 0 : blinkAt(elapsed, variant);
       renderer.render(scene, camera);
-      element.dataset.ready = 'true'; element.dataset.livingTime = elapsed.toFixed(2); element.dataset.blink = uniforms.eyelid.value.toFixed(3); dirty = false;
+      element.dataset.ready = 'true';element.dataset.jawOpen=(variant==='serpent'?THREE.MathUtils.smoothstep(uniforms.voyage.value,.12,.48)*uniforms.strikeReady.value:0).toFixed(3); element.dataset.livingTime = elapsed.toFixed(2); element.dataset.blink = uniforms.eyelid.value.toFixed(3); dirty = false;
     };
     frame = requestAnimationFrame(animate);
-    return () => { disposed = true; cancelAnimationFrame(frame); resize.disconnect(); observer.disconnect(); texture.dispose(); material.dispose(); geometry.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); };
+    return () => { disposed = true; cancelAnimationFrame(frame); resize.disconnect(); observer.disconnect(); texture.dispose(); strikeTexture?.dispose(); material.dispose(); geometry.dispose(); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); };
   }, [variant, near]);
   return <div ref={host} className={`living-portrait-effect ${className}`} data-creature={variant} aria-hidden="true"/>;
 }

@@ -35,5 +35,55 @@
     "triangles": 3498,
     "bytes": 2282292,
     "modifications": "Original mesh and 100-joint skeleton. Runtime flight animations and orbit."
+  },
+  {
+    "file": "python-living.glb",
+    "title": "Green tree python",
+    "author": "Grab3D",
+    "source": "https://grab3d.com/models/animals/snake/",
+    "download": "https://grab3d.com/dl/snake/snake-light.glb",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://grab3d.com/dl/snake/LICENSE.txt",
+    "triangles": 100000,
+    "origin": "AI-assisted base mesh and textures, cleaned in Blender by Grab3D",
+    "modifications": "Reprocessed from full source in Blender; regional breath, head, tail and coil/paddle shape-key animation; original textures retained; meshopt compression.",
+    "bytes": 4980980
+  },
+  {
+    "file": "crocodile-living.glb",
+    "title": "Crocodile",
+    "author": "Grab3D",
+    "source": "https://grab3d.com/models/animals/crocodile/",
+    "download": "https://grab3d.com/dl/crocodile/crocodile-light.glb",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://grab3d.com/dl/crocodile/LICENSE.txt",
+    "triangles": 94439,
+    "origin": "AI-assisted base mesh and textures, cleaned in Blender by Grab3D",
+    "modifications": "Reprocessed from full source in Blender; regional breath, head, tail and coil/paddle shape-key animation; original textures retained; meshopt compression.",
+    "bytes": 5385376
+  },
+  {
+    "file": "dragon-living.glb",
+    "title": "Animated Dragon Three Motion Loops",
+    "author": "LasquetiSpice",
+    "source": "https://sketchfab.com/3d-models/animated-dragon-three-motion-loops-eca98cf6cd084c1596cecf716e110c29",
+    "distribution": "https://afk.ai/samples",
+    "download": "https://afk.ai/rig/samples/winged-dragon.glb",
+    "license": "CC-BY-4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "triangles": 19541,
+    "modifications": "afk.ai simplified textured mesh; normalized in Blender, dielectric skin correction and new wing, tail, chest shape-key flight animation; meshopt compression.",
+    "bytes": 2378492
+  },
+  {
+    "file": "turtle-living.glb",
+    "title": "Sea Turtle",
+    "author": "Grab3D",
+    "source": "https://grab3d.com/models/animals/sea-turtle/",
+    "download": "https://grab3d.com/dl/sea-turtle/sea-turtle-light.glb",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://grab3d.com/dl/sea-turtle/LICENSE.txt",
+    "bytes": 4864268,
+    "modifications": "Blender normalization, 60k-face simplification, independent left/right shoulder recovery and power strokes, rear flipper steering, 4.8-second swim/glide cycle; meshopt compression. Runtime nocturnal materials."
   }
 ]

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import './official-model-viewer.css';
+import { createIdlePortrait, supportsIdlePortrait } from './viewer-idle-portrait.js';
 
 let sdkPromise;
 const loadSDK = () => {
@@ -24,20 +25,31 @@ export default function OfficialModelViewer({ model, paused=false, autoRotate=tr
   const visibility=useRef(false);
   options.current={paused,autoRotate,focus,resetKey,interactive,onReady};
   useEffect(()=>{
-    // Preload nearby models, but only render models actually inside the viewport.
-    const preload=new IntersectionObserver(([entry])=>{if(entry.isIntersecting)setLoaded(true);},{rootMargin:'220px'});
-    const visible=new IntersectionObserver(([entry])=>{visibility.current=entry.isIntersecting;controller.current?.visibility();});
-    preload.observe(host.current);visible.observe(host.current);
-    return()=>{preload.disconnect();visible.disconnect();};
+    // Lazy components can mount during a scroll/entrance transform. Supplement
+    // intersection notifications with a layout check so visible cards cannot
+    // remain in their loading state after an anchor jump.
+    let scheduled=0;
+    const check=()=>{
+      scheduled=0;const box=host.current?.getBoundingClientRect();if(!box)return;
+      const visible=box.height>0&&box.width>0&&box.bottom>0&&box.top<innerHeight;
+      if(box.height>0&&box.bottom>-220&&box.top<innerHeight+220)setLoaded(true);
+      if(visibility.current!==visible){visibility.current=visible;controller.current?.visibility();}
+    };
+    const schedule=()=>{if(!scheduled)scheduled=requestAnimationFrame(check);};
+    const preload=new IntersectionObserver(schedule,{rootMargin:'220px'});
+    const resize=new ResizeObserver(schedule);preload.observe(host.current);resize.observe(host.current);
+    window.addEventListener('scroll',schedule,{passive:true});window.addEventListener('resize',schedule);schedule();
+    return()=>{preload.disconnect();resize.disconnect();cancelAnimationFrame(scheduled);window.removeEventListener('scroll',schedule);window.removeEventListener('resize',schedule);};
   },[]);
   useEffect(()=>{controller.current?.update();},[paused,autoRotate,focus,resetKey]);
   useEffect(()=>{
     if(!loaded)return;
     let disposed=false,api=null,raf=0,timeout=0,readyNow=false,rendering=false,elapsed=0,lifeTime=0,last=performance.now(),baseline=null,detailTarget=null;
-    let yaw=0,pitch=0,zoom=model.framingScale||1,spin=0,scrollAngle=0,scrollOrigin=window.scrollY,manualUntil=0;
-    let renderedYaw=0,renderedPitch=0,renderedZoom=zoom,detailMix=options.current.focus==='detail'?1:0;
+    let yaw=model.viewYaw||0,pitch=model.viewPitch||0,zoom=model.framingScale||1,spin=0,scrollAngle=0,scrollOrigin=window.scrollY,manualUntil=0;
+    let renderedYaw=yaw,renderedPitch=pitch,renderedZoom=zoom,detailMix=options.current.focus==='detail'?1:0;
     let previousReset=options.current.resetKey,previousFocus=options.current.focus,cameraPending=false,cameraSentAt=0,cameraDirty=true,lastCamera=null;
-    let motionNode=null,nativeAnimation=false,motionPending=false,motionSentAt=0;
+    let motionNode=null,nativeAnimation=false,motionPending=false,motionSentAt=0,portrait=null,readyAt=0;
+    const gazeNodes=[];
     const frame=iframe.current,element=host.current;
     let width=element.clientWidth,height=element.clientHeight;
     let hovering=interactive&&matchMedia('(hover: hover)').matches&&element.matches(':hover');
@@ -71,12 +83,12 @@ export default function OfficialModelViewer({ model, paused=false, autoRotate=tr
     const setupMotion=()=>{
       api.getAnimations((err,clips)=>{
         if(disposed)return;
-        const idle=!err&&clips?.find(clip=>/idle|breath|rest/i.test(clip[1]));
+        const idle=!err&&(clips?.find(clip=>/idle_A2/i.test(clip?.[1]))||clips?.find(clip=>/idle|breath|rest/i.test(clip?.[1])));
         if(idle){
           api.setCurrentAnimationByUID(idle[0],error=>{
             if(disposed||error)return;
-            nativeAnimation=true;element.dataset.motion='native-idle';
-            api.setCycleMode('loopOne',()=>{});api.setSpeed(.72,()=>{});syncAnimation();
+            nativeAnimation=true;element.dataset.motion='native-idle';element.dataset.animation=idle[1];
+            api.setCycleMode('loopOne',()=>{});api.setSpeed(.90,()=>{});syncAnimation();
           });
           return;
         }
@@ -89,16 +101,21 @@ export default function OfficialModelViewer({ model, paused=false, autoRotate=tr
           if(disposed||nodeError)return;
           const node=Object.values(nodes).find(n=>n.type==='MatrixTransform'&&n.name==='GLTF_SceneRootNode');
           if(!node){element.dataset.motion='camera-only';return;}
+          if(model.id==='cg')for(const pupil of Object.values(nodes).filter(n=>n.type==='MatrixTransform'&&/^pupil/.test(n.name))){
+            api.getMatrix(pupil.instanceID,(err,value)=>{if(!disposed&&!err&&value?.local)gazeNodes.push({id:pupil.instanceID,base:Array.from({length:16},(_,i)=>Number(value.local[i]))});});
+          }
           api.getMatrix(node.instanceID,(matrixError,value)=>{
-            if(disposed||matrixError||!Array.isArray(value?.local)){element.dataset.motion='camera-only';return;}
-            motionNode={id:node.instanceID,base:[...value.local]};element.dataset.motion='breathing-transform';
+            if(disposed||matrixError||!value?.local){element.dataset.motion='camera-only';return;}
+            const base=Array.from({length:16},(_,i)=>Number(value.local[i]));
+            if(!base.every(Number.isFinite))return;
+            motionNode={id:node.instanceID,base};element.dataset.motion='breathing-transform';
           });
         });
       });
     };
     const update=()=>{
       if(!readyNow)return;
-      if(previousReset!==options.current.resetKey){previousReset=options.current.resetKey;yaw=0;pitch=0;zoom=model.framingScale||1;elapsed=0;spin=0;scrollAngle=0;scrollOrigin=window.scrollY;element.dataset.zoom=zoom.toFixed(3);}
+      if(previousReset!==options.current.resetKey){previousReset=options.current.resetKey;portrait?.reset();yaw=model.viewYaw||0;pitch=model.viewPitch||0;zoom=model.framingScale||1;elapsed=0;spin=0;scrollAngle=0;scrollOrigin=window.scrollY;element.dataset.zoom=zoom.toFixed(3);}
       if(previousFocus!==options.current.focus){previousFocus=options.current.focus;manualUntil=performance.now()+800;}
       syncAnimation();cameraDirty=true;requestTick();
     };
@@ -111,7 +128,7 @@ export default function OfficialModelViewer({ model, paused=false, autoRotate=tr
     };
     const enter=e=>{if(e.pointerType!=='touch')hovering=true;};
     const leave=e=>{if(e.pointerType!=='touch')hovering=false;};
-    const markManual=()=>{manualUntil=performance.now()+1800;cameraDirty=true;element.dataset.zoom=zoom.toFixed(3);requestTick();};
+    const markManual=()=>{portrait?.invalidate(true);if(portrait)element.dataset.motion=motionNode?'breathing-transform':'interactive-3d';manualUntil=performance.now()+1800;cameraDirty=true;element.dataset.zoom=zoom.toFixed(3);requestTick();};
     const down=e=>{
       if(!readyNow||(e.pointerType==='mouse'&&e.button!==0))return;
       e.currentTarget.setPointerCapture(e.pointerId);e.currentTarget.focus({preventScroll:true});
@@ -153,23 +170,30 @@ export default function OfficialModelViewer({ model, paused=false, autoRotate=tr
       const automatic=shouldMove();
       if(automatic){
         lifeTime+=dt;
-        if(now>manualUntil&&!gesture&&!hovering){
+        if(now>manualUntil&&!gesture&&!hovering&&!portrait?.enabled){
           elapsed+=dt;if(options.current.autoRotate)spin=Math.sin(elapsed*.16)*.23;
           const scrollTarget=clamp((window.scrollY-scrollOrigin)/Math.max(600,innerHeight)*.14,-.35,.35);
           scrollAngle+=(scrollTarget-scrollAngle)*(1-Math.exp(-dt*4));
         }
-        if(motionNode&&!gesture&&!motionPending&&now-motionSentAt>1000/15){
+        if(motionNode&&!portrait?.enabled&&!gesture&&!motionPending&&now-motionSentAt>1000/15){
           const breath=(1-Math.cos(lifeTime*1.32+phase))*.5;
-          const scale=[1+breath*.003,1+breath*.013,1+breath*.004];
+          const scale=[1+breath*.004,1+breath*.024,1+breath*.006];
           const matrix=motionNode.base.map((v,i)=>i<12?v*scale[Math.floor(i/4)]:v);
           motionPending=true;motionSentAt=now;
           api.setMatrix(motionNode.id,matrix,()=>{motionPending=false;});
+          element.dataset.breath=breath.toFixed(3);
+          const distance=baseline?Math.hypot(...baseline.position.map((v,i)=>v-baseline.target[i])):1;
+          const look=Math.sin(lifeTime*.62+phase)*Math.sin(lifeTime*.21);
+          for(const pupil of gazeNodes){const m=[...pupil.base];m[12]+=look*distance*.00065;m[13]+=Math.sin(lifeTime*.43)*distance*.00028;api.setMatrix(pupil.id,m,()=>{});}
+          if(gazeNodes.length)element.dataset.gaze=look.toFixed(3);
         }
       }
       const smooth=1-Math.exp(-dt/(gesture ? .035 : .08));
       renderedYaw+=(yaw-renderedYaw)*smooth;renderedPitch+=(pitch-renderedPitch)*smooth;renderedZoom+=(zoom-renderedZoom)*smooth;
       detailMix+=((options.current.focus==='detail'?1:0)-detailMix)*(1-Math.exp(-dt/.18));
-      camera(now);requestTick();
+      camera(now);
+      if(portrait?.enabled&&automatic&&!gesture&&now>readyAt+2200&&!cameraPending)portrait.capture();
+      portrait?.render(lifeTime,now);requestTick();
     }
     const fail=()=>{if(disposed)return;setError(true);clearTimeout(timeout);};
     timeout=setTimeout(fail,45000);
@@ -178,14 +202,25 @@ export default function OfficialModelViewer({ model, paused=false, autoRotate=tr
       const client=new Sketchfab('1.12.1',frame);
       client.init(model.uid,{
         autostart:1,preload:0,animation_autoplay:0,camera:0,autospin:0,dnt:1,scrollwheel:0,
-        max_texture_size:interactive&&!compact?4096:2048,ui_theme:'dark',ui_stop:0,ui_hint:0,ui_controls:interactive?1:0,
+        max_texture_size:innerWidth<640&&compact?2048:4096,ui_theme:'dark',ui_stop:0,ui_hint:0,ui_controls:interactive?1:0,
         success(instance){
           if(disposed){instance.stop();return;}
           api=instance;api.start();rendering=true;
           api.addEventListener('viewerready',()=>{
             if(disposed)return;
-            readyNow=true;clearTimeout(timeout);setReady(true);setError(false);
-            api.setBackground({color:[.055,.025,.085]},()=>{});
+            readyNow=true;readyAt=performance.now();if(compact&&supportsIdlePortrait(model.id))portrait=createIdlePortrait(api,element,model);clearTimeout(timeout);setReady(true);setError(false);
+            api.setBackground({color:[.035,.018,.055]},()=>{});
+            // Request the creator's full-resolution textures. Resolution caps
+            // remain lower for the four simultaneous cards on small devices.
+            api.setTextureQuality('hd',error=>{if(!disposed)element.dataset.textureQuality=error?'default':'hd';});
+            api.getPostProcessing(settings=>{
+              if(disposed||!settings)return;
+              api.setPostProcessing({...settings,enable:true,sharpenEnable:true,sharpenFactor:.16},()=>{});
+            });
+            api.getEnvironment((error,env)=>{
+              if(disposed||error||!env)return;
+              api.setEnvironment({enabled:true,exposure:Math.min(1.2,(env.exposure??1)*1.05),lightIntensity:env.lightIntensity??1,rotation:env.rotation??0},()=>{});
+            });
             if(!interactive)api.setUserInteraction(false,()=>{});
             setupMotion();
             api.getCameraLookAt((err,value)=>{
@@ -200,9 +235,9 @@ export default function OfficialModelViewer({ model, paused=false, autoRotate=tr
       });
     }).catch(fail);
     element.addEventListener('wheel',wheel,{passive:false});
-    const resize=new ResizeObserver(()=>{width=element.clientWidth;height=element.clientHeight;cameraDirty=true;requestTick();});resize.observe(element);
+    const resize=new ResizeObserver(()=>{width=element.clientWidth;height=element.clientHeight;portrait?.invalidate();cameraDirty=true;requestTick();});resize.observe(element);
     document.addEventListener('visibilitychange',setVisibility);
-    return()=>{disposed=true;clearTimeout(timeout);cancelAnimationFrame(raf);resize.disconnect();element.removeEventListener('wheel',wheel);document.removeEventListener('visibilitychange',setVisibility);controller.current=null;if(api)api.stop();frame.src='about:blank';};
+    return()=>{disposed=true;clearTimeout(timeout);cancelAnimationFrame(raf);resize.disconnect();element.removeEventListener('wheel',wheel);document.removeEventListener('visibilitychange',setVisibility);controller.current=null;portrait?.dispose();if(api)api.stop();frame.src='about:blank';};
   },[loaded,model.uid,retry,interactive,compact]);
   return <div ref={host} className={`official-model-viewer ${compact?'official-model-card':''} ${className}`} data-model-id={model.uid} data-ready={ready?'true':'false'} onPointerEnter={e=>controller.current?.enter(e)} onPointerLeave={e=>controller.current?.leave(e)}>
     {loaded&&<iframe ref={iframe} title={`${model.title} — ${model.author} の精密3Dモデル`} allow="autoplay; fullscreen; xr-spatial-tracking; accelerometer; gyroscope" allowFullScreen tabIndex={interactive?0:-1} style={{pointerEvents:interactive?'auto':'none'}}/>}

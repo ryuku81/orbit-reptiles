@@ -14,3 +14,6 @@
 .official-viewer-zoom button{width:32px;height:31px;display:grid;place-items:center;padding:0;border:0;background:transparent;color:#f4e8ff;font-size:18px;line-height:1;font-family:inherit;cursor:pointer;touch-action:manipulation}
 .official-viewer-zoom button+button{border-top:1px solid #d8b8ef33}.official-viewer-zoom button:hover{background:#b87de52b}.official-viewer-zoom button:focus-visible{outline:2px solid #e5b7ff;outline-offset:-3px}
 @media(pointer:coarse){.official-viewer-zoom button{width:38px;height:38px}}
+
+.official-idle-portrait{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:0;transition:opacity .15s;clip-path:inset(42px 0 44px);filter:brightness(.72) saturate(.62)}
+@media(prefers-reduced-motion:reduce){.official-idle-portrait{transition:none}}

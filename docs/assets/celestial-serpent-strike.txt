@@ -1,0 +1,8 @@
+Asset: public/images/celestial-serpent-strike.png
+Source: public/images/celestial-serpent.webp
+Method: built-in image_gen edit, 2026-11-12
+
+Final generation prompt:
+Use case: precise-object-edit. Asset: open-mouth animation keyframe for existing website snake, to be aligned pixel-for-pixel with the reference image. Edit ONLY the snake's head and immediately adjacent neck. Keep the entire S-curved body, tail, scales, small purple orb, nebula background, framing, 3:2 aspect ratio and camera EXACTLY unchanged. Keep head centered at the same position in upper left, eye at x32% y25%. The same iridescent lavender-purple serpent now opens its mouth VERY WIDE (around 80 degrees), its upper snout lifted slightly and lower jaw dropping downward into empty space below its head. Highly detailed anatomical mouth interior, dark violet throat, pink-purple palate, two sharp curved ivory fangs, wet highlights; no blood or gore. Mouth faces diagonally toward camera and lower-left, as if about to strike the viewer. Preserve photoreal detailed scales and bright lavender-purple color. No text. Do not enlarge or move the entire snake. Output full image, not a crop.
+
+Runtime (updated 2026-11-12): continuous anatomical grid deformation with separate upper/lower lip bands; a short registered transition from the resting head, then one head texture throughout the opening in portrait-morph.js and LivingPortraitEffect.jsx; scroll-driven recoil, scale, translation and fade in App.jsx. This is an animated illustration, not a rigged 3D hero snake.

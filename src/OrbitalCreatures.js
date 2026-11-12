@@ -1,12 +1,16 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
-// These are complete, textured glTF meshes. Their silhouettes, shading and
-// occlusion change as they turn; no portrait planes or sprites are used here.
+// Full meshes, PBR skin textures and regional Blender shape-key animations.
+// All dimensions are in planet-space; paths stay outside the opaque globe.
 const inhabitants = [
-  { id: 'python', size: .92, phase: 2.05, radius: 2.10, height: .72, depth: .67, speed: .092, yaw: -.45, pitch: .60, roll: -.17 },
-  { id: 'crocodile', size: 1.28, phase: 4.38, radius: 2.10, height: .62, depth: -.60, speed: .085, yaw: 1.08, pitch: .78, roll: -.20 },
-  { id: 'dragon', size: 1.55, phase: .18, radius: 2.30, height: .77, depth: .61, speed: .145, yaw: -.65, pitch: .20, roll: .03 },
+  { id: 'dragon', instance: 'dragon-umber', tint: '#94847a', size: 1.60, phase: .20, radius: 2.40, tilt: .42, turn: -.27, speed: .24, bank: .10, animationSpeed: 1.10 },
+  { id: 'dragon', instance: 'dragon-slate', tint: '#718394', size: 1.40, phase: 2.32, radius: 2.58, tilt: -.38, turn: .34, speed: .21, bank: -.16, animationSpeed: .92 },
+  { id: 'dragon', instance: 'dragon-plum', tint: '#92748c', size: 1.75, phase: 4.46, radius: 2.77, tilt: .60, turn: -.40, speed: .19, bank: .17, animationSpeed: 1.02 },
+  { id: 'turtle', instance: 'turtle-moss', tint: '#69785e', size: .85, phase: 1.15, radius: 2.20, tilt: -.30, turn: .24, speed: .13, bank: -.08, animationSpeed: 1.12 },
+  { id: 'turtle', instance: 'turtle-bronze', tint: '#827266', size: .96, phase: 3.25, radius: 2.48, tilt: .50, turn: -.15, speed: .15, bank: .14, animationSpeed: .98 },
+  { id: 'turtle', instance: 'turtle-blue', tint: '#5f7683', size: .76, phase: 5.35, radius: 2.68, tilt: -.58, turn: .38, speed: .12, bank: -.12, animationSpeed: 1.20 },
 ];
 
 function releaseModel(model) {
@@ -18,110 +22,110 @@ function releaseModel(model) {
       materials.add(material);
       for (const value of Object.values(material)) if (value?.isTexture) textures.add(value);
     }
-    node.skeleton?.dispose();
   });
   textures.forEach(texture => texture.dispose());
   materials.forEach(material => material.dispose());
   geometries.forEach(geometry => geometry.dispose());
 }
 
+function flightPosition(path, time, progress, out) {
+  // Small, continuous acceleration and differences in inclination prevent a
+  // mechanical carousel. The tangent is also the animal's actual heading.
+  const angle = path.phase + time * path.speed + Math.sin(time * .23 + path.phase) * .11 + progress * .48;
+  const radius = path.radius + Math.sin(time * .32 + path.phase) * .12;
+  const x = Math.cos(angle) * radius;
+  const y = Math.sin(angle) * radius * Math.sin(path.tilt);
+  const z = Math.sin(angle) * radius * Math.cos(path.tilt);
+  out.set(x * Math.cos(path.turn) - y * Math.sin(path.turn),
+    x * Math.sin(path.turn) + y * Math.cos(path.turn) + Math.sin(time * .64 + path.phase) * .10,
+    z);
+}
+
 export function createOrbitalCreatures({ onReady, onError }) {
   const group = new THREE.Group();
   group.name = 'orbital-living-meshes';
-  const loader = new GLTFLoader(), residents = [];
+  const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder), residents = [], assets = new Map(), templates = [];
   let disposed = false;
+  const load = id => {
+    if (!assets.has(id)) assets.set(id, loader.loadAsync(`/models/orbital/${id}-living.glb`).then(gltf => {
+      if (disposed) { releaseModel(gltf.scene); return null; }
+      templates.push(gltf.scene);
+      gltf.scene.traverse(node => {
+        if (!node.isMesh) return;
+        node.renderOrder = 3;
+        node.frustumCulled = false;
+        for (const material of Array.isArray(node.material) ? node.material : [node.material]) {
+          // Preserve the model's normal and roughness maps. Skin is dielectric.
+          material.metalness = 0;
+          material.color.set('#ffffff');
+          material.onBeforeCompile = shader => {
+            shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\nfloat skinLuma=dot(diffuseColor.rgb,vec3(.2126,.7152,.0722)); diffuseColor.rgb=mix(vec3(skinLuma),diffuseColor.rgb,.52);');
+          };
+          material.customProgramCacheKey=()=> 'nocturnal-skin-v1';
+          material.envMapIntensity = id === 'dragon' ? .38 : .28;
+          material.roughness = id === 'dragon' ? .68 : .78;
+          material.depthWrite = true;
+          material.side = id === 'dragon' ? THREE.DoubleSide : THREE.FrontSide;
+          material.transparent = true;
+          material.opacity = 1;
+          material.forceSinglePass = true;
+          for (const value of Object.values(material)) if (value?.isTexture) value.anisotropy = 8;
+        }
+      });
+      return gltf;
+    }));
+    return assets.get(id);
+  };
   for (const path of inhabitants) {
-    loader.load(`/models/orbital/${path.id}.glb`, gltf => {
-      const model = gltf.scene;
-      if (disposed) { releaseModel(model); return; }
-      const bounds = new THREE.Box3().setFromObject(model);
-      const extent = bounds.getSize(new THREE.Vector3());
-      const center = bounds.getCenter(new THREE.Vector3());
-      const normalization = 1 / Math.max(extent.x, extent.y, extent.z);
-      // Keep centering outside the animated root so skeletal clips cannot
-      // overwrite normalization or the flight path.
-      const centered = new THREE.Group();
-      centered.scale.setScalar(normalization);
-      centered.position.copy(center).multiplyScalar(-normalization);
-      centered.add(model);
-      const pose = new THREE.Group();
-      pose.add(centered);
-      const orbit = new THREE.Group();
-      orbit.name = `orbital-${path.id}`;
+    load(path.id).then(gltf => {
+      if (disposed || !gltf) return;
+      const model = gltf.scene.clone(true);
+      const pose = new THREE.Group(); pose.add(model);
+      const orbit = new THREE.Group(); orbit.name = `orbital-${path.instance}`;
       orbit.add(pose); group.add(orbit);
       let meshCount = 0, triangles = 0;
       model.traverse(node => {
         if (!node.isMesh) return;
+        node.material = (Array.isArray(node.material) ? node.material : [node.material]).map(source => {
+          const material=source.clone();material.color.set(path.tint);
+          material.onBeforeCompile=source.onBeforeCompile;material.customProgramCacheKey=source.customProgramCacheKey;
+          return material;
+        });
+        if(node.material.length===1)node.material=node.material[0];
         meshCount++;
         triangles += (node.geometry.index?.count ?? node.geometry.attributes.position.count) / 3;
-        // Composite the solid creatures after the luminous, depthless rings.
-        // Their actual mesh depth still tests against the opaque planet and
-        // against other animals, so the far half of each orbit is occluded.
-        node.renderOrder = 3;
-        // Broad animated wings must not disappear against their rest-pose bounds.
-        if (node.isSkinnedMesh) node.frustumCulled = false;
-        for (const material of Array.isArray(node.material) ? node.material : [node.material]) {
-          material.transparent = true;
-          material.opacity = 1;
-          material.depthWrite = true;
-          material.depthTest = true;
-          material.forceSinglePass = true;
-          material.envMapIntensity = path.id === 'dragon' ? .55 : .24;
-          material.roughness = path.id === 'dragon' ? .46 : Math.min(material.roughness ?? .7, .76);
-          if (path.id === 'dragon') material.metalness = .18;
-          for (const value of Object.values(material)) if (value?.isTexture) value.anisotropy = 4;
-        }
       });
-      let mixer, flap, glide;
-      const flight = gltf.animations.find(clip => clip.name === 'Fly Flap');
-      if (flight) {
-        mixer = new THREE.AnimationMixer(model);
-        flap = mixer.clipAction(flight).play();
-        const glideClip = gltf.animations.find(clip => clip.name === 'Fly Glide');
-        if (glideClip) glide = mixer.clipAction(glideClip).setEffectiveWeight(.15).play();
-      }
-      residents.push({ path, model, pose, orbit, mixer, flap, glide });
-      onReady?.({ id: path.id, count: residents.length, meshCount, triangles, animated: Boolean(mixer) });
-    }, undefined, () => { if (!disposed) onError?.(path.id); });
+      const mixer = new THREE.AnimationMixer(model);
+      for (const clip of gltf.animations) mixer.clipAction(clip).play();
+      residents.push({ path, model, pose, orbit, mixer });
+      onReady?.({ id: path.id, count: residents.length, speciesCount: residents.filter(r=>r.path.id===path.id).length, meshCount, triangles, animated: gltf.animations.length > 0 });
+    }).catch(() => { if (!disposed) onError?.(path.id); });
   }
+  const next = new THREE.Vector3(), forward = new THREE.Vector3(), right = new THREE.Vector3(), up = new THREE.Vector3();
+  const dorsal = new THREE.Vector3(0, .72, .70), basis = new THREE.Matrix4();
+  const bankQuaternion = new THREE.Quaternion(), forwardAxis = new THREE.Vector3(0, 0, 1);
   return {
-    group,
+    group, surfaceCount: 0, surfaceSnakes: 0,
     update(time, progress, resonance) {
-      for (const { path, orbit, pose, mixer, flap, glide } of residents) {
-        const angle = path.phase + time * path.speed + progress * .68;
-        const bob = Math.sin(time * .78 + path.phase) * .075;
-        orbit.position.set(
-          Math.cos(angle) * path.radius,
-          Math.sin(angle) * path.radius * path.height + bob,
-          Math.sin(angle) * path.radius * path.depth,
-        );
+      for (const { path, orbit, pose, mixer } of residents) {
+        flightPosition(path, time, progress, orbit.position);
+        flightPosition(path, time + .025, progress, next);
+        forward.subVectors(next, orbit.position).normalize();
+        right.crossVectors(dorsal, forward).normalize();
+        up.crossVectors(forward, right).normalize();
+        basis.makeBasis(right, up, forward);
+        pose.quaternion.setFromRotationMatrix(basis);
+        bankQuaternion.setFromAxisAngle(forwardAxis, path.bank + Math.sin(time * .48 + path.phase) * .28);
+        pose.quaternion.multiply(bankQuaternion);
         const arrival = THREE.MathUtils.smoothstep(progress + .19, 0, .18);
-        orbit.scale.setScalar(path.size * arrival * (1 + resonance * .035));
-        if (mixer) {
-          const wingWeight = .82 + Math.sin(time * .23) * .12;
-          flap.setEffectiveWeight(wingWeight);
-          glide?.setEffectiveWeight(1 - wingWeight);
-          mixer.setTime(time * .76);
-          // The dragon banks toward the direction of travel while its rig
-          // animates the wings, spine, jaw, feet and tail independently.
-          pose.rotation.set(path.pitch + Math.sin(time * .47) * .10,
-            path.yaw - angle * .60, path.roll + Math.sin(angle) * .22);
-        } else {
-          // A drifting animal turns enough to reveal its back, sides and belly.
-          pose.rotation.set(path.pitch + Math.sin(time * .46 + path.phase) * .12,
-            path.yaw + time * .15 + progress * .48,
-            path.roll + Math.sin(time * .39 + path.phase) * .12);
-          pose.scale.y = 1 + Math.sin(time * 1.55 + path.phase) * .018;
-        }
+        orbit.scale.setScalar(path.size * arrival * (1 + resonance * .025));
+        mixer.setTime(time * path.animationSpeed + path.phase);
       }
     },
     dispose() {
       disposed = true;
-      for (const { model, mixer } of residents) {
-        mixer?.stopAllAction();
-        mixer?.uncacheRoot(model);
-        releaseModel(model);
-      }
+      for (const { model, mixer } of residents) { mixer.stopAllAction(); mixer.uncacheRoot(model);model.traverse(node=>{if(node.isMesh)for(const material of Array.isArray(node.material)?node.material:[node.material])material.dispose();}); }
+      templates.forEach(releaseModel);
       group.clear();
     },
   };
