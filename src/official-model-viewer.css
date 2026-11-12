@@ -5,6 +5,8 @@
 .viewer-loading-orbit{width:38px;height:38px;border:1px solid #cd9eff35;border-top-color:#e5c4ff;border-right-color:#a670df;border-radius:50%;animation:official-model-load 2s linear infinite;box-shadow:0 0 30px #9e52d62b}
 .official-viewer-error{gap:12px}.official-viewer-error strong{font-size:13px;font-weight:500}.official-viewer-error span{font-size:10px}.official-viewer-error button{pointer-events:auto;padding:10px 18px;border:1px solid #d4b0f777;border-radius:4px;color:#ebd5ff;background:#492461}
 .official-viewer-gesture{position:absolute;inset:62px 0 45px;z-index:1;cursor:grab;outline-offset:-4px}.official-viewer-gesture:active{cursor:grabbing}.official-viewer-gesture:focus-visible{outline:2px solid #e5b7ff}
+.official-model-viewer[data-interacting=true] .official-viewer-gesture{cursor:grabbing}
+.official-model-card .official-viewer-gesture{user-select:none;-webkit-user-select:none}
 .specimen-scene>.official-model-viewer{position:absolute;inset:0}
 @keyframes official-model-load{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.viewer-loading-orbit{animation:none}}

@@ -7,7 +7,7 @@ import './scroll-journey.css';
 
 const chapters = [
   { label: 'INTO THE NEBULA', title: <>星の奥へ。</>, description: <>色も、かたちも、想像の先へ。<br />まだ知らない世界を、ゆっくりと。</> },
-  { label: 'EVERY LIFE, A UNIVERSE', title: <>ひとつの生命に、<br />ひとつの宇宙。</>, description: <>星の環を泳ぐ、七色の鱗。<br />宇宙が、ひとつの生命になる。</> },
+  { label: 'EVERY LIFE, A UNIVERSE', title: <>ひとつの生命に、<br />ひとつの宇宙。</>, description: <>星の環に、ふわりと浮かぶ生命。<br />まだ知らない表情に、出会う。</> },
   { label: 'FIND YOUR ORBIT', title: <>心惹かれる、<br />その軌道へ。</>, description: <>星を見つけるように、出会おう。<br />あなたの世界が変わる、その瞬間に。</> },
 ];
 const vertex = `varying vec3 vPosition; varying vec3 vNormal; varying vec3 vView;
@@ -17,103 +17,62 @@ float hash(vec3 p){p=fract(p*.3183099+vec3(.1,.2,.3));p*=17.;return fract(p.x*p.
 float noise3(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.-2.*f);return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);}
 float fbm(vec3 p){float a=.5,v=0.;for(int i=0;i<5;i++){v+=a*noise3(p);p=p*2.07+vec3(4.2,1.7,8.4);a*=.49;}return v;}`;
 
-// A volumetric celestial python: connected tapering skin, raised scale relief,
-// sculpted head and eyes. It winds behind the planet and through the ring plane.
-function orbitalSerpent({ geometry, material, cleanups }) {
+// Photographic-style transparent portraits travel through the same 3D space as
+// the planet. They stay face-on while depth testing lets the planet occlude them.
+function floatingReptilePortraits({ material, cleanups, onReady }) {
   const group = new THREE.Group();
-  const maps = [];
-  const surface = document.createElement('canvas'); surface.width = 1024; surface.height = 512;
-  const relief = document.createElement('canvas'); relief.width = 1024; relief.height = 512;
-  const paint = surface.getContext('2d'), bump = relief.getContext('2d');
-  paint.fillStyle = '#281637'; paint.fillRect(0,0,1024,512); bump.fillStyle = '#454545'; bump.fillRect(0,0,1024,512);
-  for(let row=-1;row<33;row++) for(let col=-1;col<65;col++) {
-    const x=col*16+(row%2)*8, y=row*16;
-    const seed=Math.sin(col*34.17+row*71.83)*.5+.5;
-    const hue=258+Math.sin(row*.25)*16+seed*12;
-    const shine=paint.createLinearGradient(x,y-7,x,y+8);
-    shine.addColorStop(0,`hsl(${hue},38%,${61+seed*15}%)`);
-    shine.addColorStop(.55,`hsl(${hue},43%,${38+seed*12}%)`);
-    shine.addColorStop(1,`hsl(${hue+10},44%,25%)`);
-    for(const ctx of [paint,bump]){
-      ctx.beginPath();ctx.moveTo(x-7,y-5);ctx.quadraticCurveTo(x,y-10,x+7,y-5);ctx.lineTo(x+7,y+1);ctx.quadraticCurveTo(x+5,y+6,x,y+9);ctx.quadraticCurveTo(x-5,y+6,x-7,y+1);ctx.closePath();
-      ctx.fillStyle=ctx===paint?shine:'#bdbdbd';ctx.fill();
-    }
-    bump.fillStyle='#dedede';bump.beginPath();bump.ellipse(x,y-2,5,4,0,0,Math.PI*2);bump.fill();
-  }
-  const skinMap=new THREE.CanvasTexture(surface);skinMap.colorSpace=THREE.SRGBColorSpace;skinMap.wrapS=THREE.RepeatWrapping;skinMap.repeat.set(2.4,1);skinMap.anisotropy=4;maps.push(skinMap);
-  const scaleMap=new THREE.CanvasTexture(relief);scaleMap.wrapS=THREE.RepeatWrapping;scaleMap.repeat.set(2.4,1);scaleMap.anisotropy=4;maps.push(scaleMap);
-  cleanups.push(()=>maps.forEach(map=>map.dispose()));
-  const skin=material(new THREE.MeshPhysicalMaterial({map:skinMap,bumpMap:scaleMap,bumpScale:.035,color:'#e5d5f5',emissive:'#3c1959',emissiveIntensity:.12,metalness:.18,roughness:.3,clearcoat:.8,clearcoatRoughness:.22,iridescence:.8,iridescenceIOR:1.3,iridescenceThicknessRange:[120,380],transparent:true}));
-  const headSkin=material(skin.clone());
-  const headColor=skinMap.clone(),headRelief=scaleMap.clone();headColor.repeat.set(.16,1);headRelief.repeat.set(.16,1);headColor.needsUpdate=true;headRelief.needsUpdate=true;headSkin.map=headColor;headSkin.bumpMap=headRelief;maps.push(headColor,headRelief);
-  const dark=material(new THREE.MeshStandardMaterial({color:'#160f29',roughness:.4,transparent:true}));
-  const eyeGold=material(new THREE.MeshPhysicalMaterial({color:'#c0ecb6',emissive:'#688780',emissiveIntensity:.22,metalness:.45,roughness:.16,clearcoat:1,transparent:true}));
-  const eyeBlack=material(new THREE.MeshPhysicalMaterial({color:'#040610',roughness:.06,clearcoat:1,transparent:true}));
-  const gleam=material(new THREE.MeshBasicMaterial({color:'#e7ffff',transparent:true}));
-  const tongueMat=material(new THREE.MeshPhysicalMaterial({color:'#dc8bdc',emissive:'#752369',emissiveIntensity:.25,roughness:.35,transparent:true}));
-  const opaqueMaterials=[skin,headSkin,dark,eyeGold,eyeBlack,gleam,tongueMat];
-  const curve=new THREE.CatmullRomCurve3([
-    [1.40,.68,1.42],[1.95,.46,1.02],[2.12,-.22,.62],[1.62,-1.18,.22],
-    [.38,-1.67,-.22],[-1.03,-1.39,-.65],[-1.94,-.45,-.8],[-1.68,.72,-.8],
-    [-.64,1.54,-.65],[.73,1.75,-.37],[1.94,1.13,-.05],[2.68,.54,.22]
-  ].map(p=>new THREE.Vector3(...p)));
-  const segments=240,sides=48,frames=curve.computeFrenetFrames(segments,false),positions=[],normals=[],uvs=[],indices=[];
-  for(let i=0;i<=segments;i++){
-    const t=i/segments, point=curve.getPointAt(t);
-    const radius=(.14+.105*Math.sin(Math.min(1,t*1.6)*Math.PI)) * Math.pow(1-t,.49)+.003;
-    for(let j=0;j<=sides;j++){
-      const a=j/sides*Math.PI*2, normal=frames.normals[i].clone().multiplyScalar(Math.cos(a)).addScaledVector(frames.binormals[i],Math.sin(a));
-      const vertex=point.clone().addScaledVector(normal,radius);
-      positions.push(vertex.x,vertex.y,vertex.z);normals.push(normal.x,normal.y,normal.z);uvs.push(t,j/sides);
-      if(i<segments&&j<sides){const k=i*(sides+1)+j,n=k+sides+1;indices.push(k,k+1,n,k+1,n+1,n);}
-    }
-  }
-  const bodyGeo=geometry(new THREE.BufferGeometry());bodyGeo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));bodyGeo.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));bodyGeo.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));bodyGeo.setIndex(indices);
-  const body=new THREE.Mesh(bodyGeo,skin);group.add(body);
-  const wave={value:0},energy={value:0};
-  skin.onBeforeCompile=shader=>{
-    shader.uniforms.uSerpentTime=wave;shader.uniforms.uSerpentEnergy=energy;
-    shader.vertexShader='uniform float uSerpentTime; varying vec2 vSerpentUV;\n'+shader.vertexShader;
-    shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n vSerpentUV=uv; transformed.y+=sin(uv.x*16.-uSerpentTime*1.25)*.035*sin(uv.x*3.14159); transformed.z+=cos(uv.x*12.-uSerpentTime)*.025*sin(uv.x*3.14159);');
-    shader.fragmentShader='uniform float uSerpentTime; uniform float uSerpentEnergy; varying vec2 vSerpentUV;\n'+shader.fragmentShader;
-    shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\n float ribbon=pow(.5+.5*sin(vSerpentUV.x*35.-uSerpentTime*1.4),28.); totalEmissiveRadiance+=vec3(.25,.23,.6)*ribbon*(.08+uSerpentEnergy*.7);');
-  };
-  const head=new THREE.Group();head.position.copy(curve.getPointAt(0));head.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),curve.getTangentAt(0).negate());group.add(head);
-  const headPos=[],headUv=[],headIndex=[];
-  const sections=[[-.26,.105,.098,0],[-.15,.185,.115,.018],[.01,.221,.145,.035],[.17,.19,.13,.028],[.31,.133,.085,.014],[.39,.085,.045,0],[.405,.008,.012,-.006]];
-  const headSteps=64;
-  const sample=(t,k)=>{const p=t*(sections.length-1),i=Math.min(sections.length-2,Math.floor(p)),f=p-i,a=sections[Math.max(0,i-1)][k],b=sections[i][k],c=sections[i+1][k],d=sections[Math.min(sections.length-1,i+2)][k];return .5*((2*b)+(-a+c)*f+(2*a-5*b+4*c-d)*f*f+(-a+3*b-3*c+d)*f*f*f);};
-  for(let i=0;i<=headSteps;i++)for(let j=0;j<=48;j++){
-    const t=i/headSteps,z=sample(t,0),w=Math.max(.005,sample(t,1)),h=Math.max(.005,sample(t,2)),y=sample(t,3),a=j/48*Math.PI*2;
-    headPos.push(Math.cos(a)*w,y+Math.sin(a)*h*(Math.sin(a)<0?.62:1),z);headUv.push(t,j/48);
-    if(i<headSteps&&j<48){const a=i*49+j,b=a+49;headIndex.push(a,a+1,b,a+1,b+1,b);}
-  }
-  const headGeo=geometry(new THREE.BufferGeometry());headGeo.setAttribute('position',new THREE.Float32BufferAttribute(headPos,3));headGeo.setAttribute('uv',new THREE.Float32BufferAttribute(headUv,2));headGeo.setIndex(headIndex);headGeo.computeVertexNormals();
-  head.add(new THREE.Mesh(headGeo,headSkin));
-  const sphere=geometry(new THREE.SphereGeometry(1,24,16));
-  const ellipsoid=(parent,mat,position,scale)=>{const mesh=new THREE.Mesh(sphere,mat);mesh.position.set(...position);mesh.scale.set(...scale);parent.add(mesh);return mesh;};
-  const tube=(points,r,mat,parent=head)=>{const path=new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p)));const mesh=new THREE.Mesh(geometry(new THREE.TubeGeometry(path,30,r,8,false)),mat);parent.add(mesh);return mesh;};
-  for(const side of [-1,1]){
-    ellipsoid(head,eyeGold,[side*.196,.095,.13],[.028,.038,.046]);
-    ellipsoid(head,eyeBlack,[side*.220,.099,.14],[.008,.030,.012]);
-    ellipsoid(head,gleam,[side*.224,.113,.153],[.004,.006,.006]);
-    ellipsoid(head,dark,[side*.099,.059,.338],[.011,.009,.012]);
-    tube([[side*.074,-.028,.397],[side*.142,-.049,.28],[side*.193,-.05,.12],[side*.17,-.039,-.1]],.0045,dark);
-    for(let i=0;i<5;i++)ellipsoid(head,dark,[side*(.11+i*.016),-.01,.31-i*.041],[.007,.006,.006]);
-  }
-  const tongue=new THREE.Group();tongue.position.set(0,-.038,.39);head.add(tongue);
-  tube([[0,0,0],[0,-.01,.15],[0,-.005,.29]],.009,tongueMat,tongue);
-  tube([[0,-.005,.27],[-.042,0,.36]],.005,tongueMat,tongue);tube([[0,-.005,.27],[.042,0,.36]],.005,tongueMat,tongue);
+  const portraits = [], maps = [];
+  let ready = false, disposed = false, cellAspect = 1.5;
+  const atlas = new THREE.TextureLoader().load('/images/orbit-reptiles-atlas.webp', texture => {
+    if(disposed) return;
+    cellAspect=texture.image.width/texture.image.height;
+    ready=true;onReady?.();
+  });
+  atlas.colorSpace=THREE.SRGBColorSpace;atlas.anisotropy=4;
+  atlas.minFilter=THREE.LinearMipmapLinearFilter;atlas.magFilter=THREE.LinearFilter;
+  maps.push(atlas);
+  const glowCanvas=document.createElement('canvas');glowCanvas.width=glowCanvas.height=96;
+  const ctx=glowCanvas.getContext('2d'),glowGradient=ctx.createRadialGradient(48,48,0,48,48,48);
+  glowGradient.addColorStop(0,'rgba(197,147,255,.36)');glowGradient.addColorStop(.35,'rgba(163,102,255,.15)');glowGradient.addColorStop(1,'rgba(125,88,255,0)');
+  ctx.fillStyle=glowGradient;ctx.fillRect(0,0,96,96);
+  const glowMap=new THREE.CanvasTexture(glowCanvas);glowMap.colorSpace=THREE.SRGBColorSpace;maps.push(glowMap);
+  // Atlas order: top-left, top-right, bottom-left, bottom-right.
+  const paths=[
+    {cell:[0,1],phase:.28,radius:2.05,tilt:.76,turn:.08,size:1.32,speed:.10,roll:-.12},
+    {cell:[1,1],phase:1.90,radius:2.08,tilt:-.64,turn:-.16,size:1.29,speed:.091,roll:.10},
+    {cell:[0,0],phase:3.55,radius:2.14,tilt:.38,turn:.21,size:1.34,speed:.084,roll:-.08},
+    {cell:[1,0],phase:5.25,radius:2.04,tilt:.67,turn:-.12,size:1.28,speed:.095,roll:.13},
+  ];
+  paths.forEach((path,index)=>{
+    const map=atlas.clone();map.offset.set(path.cell[0]*.5+.003,path.cell[1]*.5+.003);map.repeat.set(.494,.494);map.needsUpdate=true;maps.push(map);
+    const surface=material(new THREE.SpriteMaterial({map,transparent:true,depthTest:true,depthWrite:false,alphaTest:.018,color:'#fff7ff',toneMapped:false}));
+    const portrait=new THREE.Sprite(surface);portrait.renderOrder=3;portrait.name=`floating-reptile-${index+1}`;
+    const glowMat=material(new THREE.SpriteMaterial({map:glowMap,transparent:true,depthTest:true,depthWrite:false,blending:THREE.AdditiveBlending,color:'#d9b9ff',toneMapped:false}));
+    const glow=new THREE.Sprite(glowMat);glow.renderOrder=2;
+    group.add(glow,portrait);portraits.push({path,portrait,glow,index});
+  });
+  cleanups.push(()=>{disposed=true;maps.forEach(map=>map.dispose());});
   return {group,update(time,progress,resonance){
-    const amount=THREE.MathUtils.smoothstep(progress,.06,.55);
-    group.visible=amount>.005;group.position.z=-1.3*(1-amount);group.scale.setScalar(.88+amount*.12);
-    group.rotation.y=-.16+progress*.22;group.rotation.z=-.06+Math.sin(time*.25)*.018;
-    group.position.y=Math.sin(time*.7)*.022;
-    opaqueMaterials.forEach(mat=>mat.opacity=amount);
-    wave.value=time;energy.value=resonance;
-    const flick=Math.max(0,Math.sin(time*1.7+1.6));tongue.scale.z=.12+Math.pow(flick,14)*.88;
-    tongue.visible=amount>.8&&flick>.65;
-    eyeGold.emissiveIntensity=.22+resonance*.9;
+    group.visible=ready;
+    portraits.forEach(({path,portrait,glow,index})=>{
+      const angle=path.phase+time*path.speed+progress*.95;
+      const x=Math.cos(angle)*path.radius*.91;
+      const y=-Math.sin(angle)*path.radius*Math.sin(path.tilt);
+      const z=Math.sin(angle)*path.radius*Math.cos(path.tilt);
+      const turnedX=x*Math.cos(path.turn)-y*Math.sin(path.turn);
+      const turnedY=x*Math.sin(path.turn)+y*Math.cos(path.turn);
+      const bob=Math.sin(time*.77+index*1.7)*.105+Math.sin(time*.34+index)*.025;
+      portrait.position.set(turnedX+.12,turnedY+bob,z);
+      const breathe=1+Math.sin(time*1.42+index*.8)*.014;
+      const size=path.size*breathe*(1+resonance*.04);
+      portrait.scale.set(size,size/cellAspect,1);
+      portrait.material.rotation=path.roll+Math.sin(time*.46+index*2.1)*.075+Math.sin(angle)*.055;
+      // Each animal gently arrives at a different point in the scroll journey.
+      const arrival=THREE.MathUtils.smoothstep(progress+.13-index*.025,0,.15);
+      portrait.material.opacity=arrival;
+      glow.position.copy(portrait.position);glow.position.z-=.045;
+      glow.scale.set(size*1.15,size*.93,1);glow.material.opacity=arrival*(.35+resonance*.45);
+    });
   }};
 }
 
@@ -200,13 +159,13 @@ function PortalSculpture({ progress, paused }) {
         transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
       }));
       rings.add(new THREE.Mesh(bandGeometry, ringMaterial));
-      const hoopMaterial = material(new THREE.MeshBasicMaterial({ color: '#e5c6ff', transparent: true, opacity: .86 }));
+      const hoopMaterial = material(new THREE.MeshBasicMaterial({ color: '#e5c6ff', transparent: true, opacity: .86, depthWrite: false }));
       for (const [radius, thickness] of [[1.46,.005],[1.53,.007],[2.49,.006],[2.54,.0025]]) {
         rings.add(new THREE.Mesh(geometry(new THREE.TorusGeometry(radius, thickness, 6, 340)), hoopMaterial));
       }
       const outerOrbit = new THREE.Group();
       const orbitGeometry = geometry(new THREE.TorusGeometry(3.1, .0015, 5, 300));
-      const orbitMaterial = material(new THREE.MeshBasicMaterial({ color: '#cfb4ff', transparent: true, opacity: .3 }));
+      const orbitMaterial = material(new THREE.MeshBasicMaterial({ color: '#cfb4ff', transparent: true, opacity: .3, depthWrite: false }));
       const orbit = new THREE.Mesh(orbitGeometry, orbitMaterial);
       outerOrbit.add(orbit); outerOrbit.rotation.set(.5,.65,.5);rig.add(outerOrbit);
       const pointsCount = innerWidth < 640 ? 1300 : 3000;
@@ -232,8 +191,7 @@ function PortalSculpture({ progress, paused }) {
       scene.add(new THREE.AmbientLight('#8e72d8', .7));
       const key = new THREE.DirectionalLight('#dfd8ff', 3);key.position.set(-4,6,5);scene.add(key);
       const rim = new THREE.DirectionalLight('#de75f7', 2.7);rim.position.set(4,-3,1);scene.add(rim);
-      const serpent=orbitalSerpent({geometry,material,cleanups});rig.add(serpent.group);
-      const serpentFill=new THREE.DirectionalLight('#b5e9ff',1.25);serpentFill.position.set(-2,2,6);scene.add(serpentFill);
+      const reptiles=floatingReptilePortraits({material,cleanups,onReady:()=>{host.dataset.orbitCreatures='4';trigger.current?.();}});rig.add(reptiles.group);
       const crystals = [];
       const crystalMaterial = material(new THREE.MeshPhysicalMaterial({ color: '#bfa5eb', metalness: .72, roughness: .2, clearcoat: .85, flatShading: true }));
       for (let i = 0; i < 7; i++) {
@@ -244,7 +202,7 @@ function PortalSculpture({ progress, paused }) {
       }
       const render = () => { if(!disposed&&!lost) renderer.render(scene,camera); };
       const frameState = () => {
-        serpent.update(clock,smoothProgress,resonance);
+        reptiles.update(clock,smoothProgress,resonance);
         rig.rotation.y = (smoothProgress-.5)*.58;
         rig.rotation.z = -.05 + Math.sin(clock*.09)*.015;
         rings.rotation.x = 1.15 - smoothProgress*.36;
@@ -279,7 +237,7 @@ function PortalSculpture({ progress, paused }) {
       const resize=()=>{
         const {width,height}=host.getBoundingClientRect();if(!width||!height)return;
         renderer.setSize(width,height,false);camera.aspect=width/height;
-        camera.fov=width<600?50:40;camera.updateProjectionMatrix();frameState();render();
+        camera.fov=width<600?(height<320?43:50):40;camera.updateProjectionMatrix();frameState();render();
       };
       const observer=new ResizeObserver(resize);observer.observe(host);cleanups.push(()=>observer.disconnect());
       const intersection=new IntersectionObserver(([entry])=>{visible=entry.isIntersecting;update();},{rootMargin:'120px'});intersection.observe(host);cleanups.push(()=>intersection.disconnect());
@@ -317,7 +275,7 @@ export default function ScrollJourney({ paused = false, onExplore }) {
         <button className="journey-explore" onClick={onExplore}>3Dラボへ <ArrowUpRight size={19}/></button><button className="journey-ignite" disabled={paused||reduced} onClick={resonate}><Sparkle size={15}/><span>惑星を共鳴させる</span></button>
         <div className="journey-chapters" aria-hidden="true">{chapters.map((item,i)=><span key={item.label} className={chapter===i?'journey-current':''}/>)}</div>
       </div>
-      <div className="journey-orbit-label" aria-hidden="true"><span>THE ORBITAL SERPENT</span><span>環を泳ぐ、星の生命。</span></div>
+      <div className="journey-orbit-label" aria-hidden="true"><span>LIFE IN ZERO GRAVITY</span><span>ふわり、生命がめぐる。</span></div>
     </div>
   </section>;
 }

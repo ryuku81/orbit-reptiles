@@ -13,39 +13,54 @@ uniform float eyelid;
 varying vec2 vUv;
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float region(vec2 uv,vec2 center,vec2 radius){vec2 p=(uv-center)/radius;return exp(-dot(p,p)*2.);}
+vec2 turn(vec2 p,float a){float c=cos(a),s=sin(a);return vec2(p.x*c-p.y*s,p.x*s+p.y*c);}
 vec3 sampleArt(vec2 uv){return texture2D(artwork,clamp(uv,.001,.999)).rgb;}
 void main(){
   vec2 uv=vUv;
-  float breath=sin(time*1.72)+.18*sin(time*3.44-.5);
+  float breath=sin(time*1.72)+.18*sin(time*3.44-.5)+.13*sin(time*.48+.6);
   float body;
   vec2 eye;
   vec2 eyeRadius;
   if(creature<.5){
     body=region(uv,vec2(.56,.60),vec2(.26,.21));
     float lower=region(uv,vec2(.57,.25),vec2(.30,.16));
-    uv.y-=(uv.y-.59)*body*breath*.051;
-    uv.x-=(uv.x-.55)*body*breath*.016;
-    uv.y-=(uv.y-.25)*lower*sin(time*1.72-.7)*.034;
+    uv.y-=(uv.y-.59)*body*breath*.098;
+    uv.x-=(uv.x-.55)*body*breath*.031;
+    uv.y-=(uv.y-.25)*lower*sin(time*1.72-.7)*.065;
     float head=region(uv,vec2(.32,.76),vec2(.16,.14));
-    uv-=vec2(sin(time*.72)*.0035,sin(time*.92+.6)*.004)*head;
+    vec2 neck=uv-vec2(.417,.787);
+    uv+=(turn(neck,sin(time*.64)*.045+sin(time*.23)*.018)-neck)*head;
+    uv-=vec2(sin(time*.72)*.007,sin(time*.92+.6)*.0075)*head;
+    float throat=region(uv,vec2(.342,.711),vec2(.068,.056));
+    uv.y-=sin(time*1.72-.45)*.004*throat;
     float tail=region(uv,vec2(.24,.22),vec2(.15,.23));
-    uv.x-=sin(time*1.05+uv.y*7.)*.0035*tail;
+    uv.x-=sin(time*1.05+uv.y*7.)*.0078*tail;
+    uv.y-=sin(time*.74+uv.x*9.)*.0025*tail;
     eye=vec2(.3188,.7496);eyeRadius=vec2(.0101,.0183);
   }else{
     body=region(uv,vec2(.704,.627),vec2(.24,.185));
     // The flank expands around its center while the feet retain their grip.
-    uv.y-=(uv.y-.615)*body*breath*.057;
-    uv.x-=(uv.x-.70)*body*breath*.024;
+    uv.y-=(uv.y-.615)*body*breath*.106;
+    uv.x-=(uv.x-.70)*body*breath*.046;
     float throat=region(uv,vec2(.487,.663),vec2(.12,.105));
-    uv.y-=throat*sin(time*1.72-.5)*.0025;
+    uv.y-=throat*sin(time*1.72-.5)*.0061;
     float head=region(uv,vec2(.412,.795),vec2(.19,.17));
-    uv-=vec2(sin(time*.62)*.0025,sin(time*.77+.4)*.0038)*head;
+    vec2 neck=uv-vec2(.545,.718);
+    uv+=(turn(neck,sin(time*.58+.25)*.039+sin(time*.21)*.014)-neck)*head;
+    uv-=vec2(sin(time*.62)*.0055,sin(time*.77+.4)*.007)*head;
     float tail=region(uv,vec2(.825,.214),vec2(.17,.22));
-    uv.x-=sin(time*.91+uv.y*5.)*.0037*tail;
+    uv.x-=sin(time*.91+uv.y*5.)*.0082*tail;
+    uv.y-=sin(time*.71+uv.x*8.)*.0036*tail;
     eye=vec2(.4277,.8025);eyeRadius=vec2(.033,.0475);
   }
-  vec3 original=sampleArt(uv);
   vec2 e=(uv-eye)/eyeRadius;
+  // Small deliberate changes of gaze with a brief movement and a longer hold.
+  float glance=time/2.9,stepIndex=floor(glance),settle=smoothstep(0.,.115,fract(glance));
+  vec2 gazeFrom=vec2(hash(vec2(stepIndex,4.2)),hash(vec2(stepIndex,9.1)))-.5;
+  vec2 gazeTo=vec2(hash(vec2(stepIndex+1.,4.2)),hash(vec2(stepIndex+1.,9.1)))-.5;
+  vec2 gaze=mix(gazeFrom,gazeTo,settle)*vec2(.42,.27);
+  float iris=1.-smoothstep(.48,.94,length(e));
+  vec3 original=sampleArt(uv-gaze*eyeRadius*iris*(1.-eyelid));
   float eyeShape=1.-smoothstep(.88,1.035,length(e));
   // Textured skin immediately outside the iris forms upper and lower lids.
   float edge=sqrt(max(0.,1.-e.x*e.x));
@@ -86,16 +101,21 @@ void main(){
     float jewel=pow(max(0.,light-.30)*1.3,3.);
     color+=vec3(.045,.085,.13)*jewel*(.5+.5*sin(time*1.2+uv.x*9.));
   }
-  vec2 glint=e-vec2(-.26+sin(time*.58)*.09,.38+sin(time*.83)*.035);
+  vec2 glint=e-gaze*.55-vec2(-.26+sin(time*.58)*.09,.38+sin(time*.83)*.035);
   float eyeLight=exp(-dot(glint*vec2(15.,18.),glint*vec2(15.,18.)));
   color+=vec3(.70,.84,1.)*eyeLight*(1.-eyelid)*.45;
   gl_FragColor=vec4(color,1.);
 }`;
 
-function blinkAt(time) {
-  const phase = (time + 3.4) % 5.8;
+function blinkAt(time, variant) {
+  const phase = (time + (variant === 'gecko' ? .45 : 0)) % 10.8;
   const smooth = x => { const t = Math.min(1, Math.max(0, x)); return t * t * (3 - 2 * t); };
-  return smooth(phase / .10) * (1 - smooth((phase - .16) / .20));
+  const close = start => {
+    const t = phase - start;
+    return smooth(t / .085) * (1 - smooth((t - .15) / .18));
+  };
+  // Varied 2.45–3 second intervals, plus one small double-blink each cycle.
+  return Math.max(close(1.1), close(3.55), close(3.99) * .96, close(6.45), close(8.9));
 }
 
 export default function LivingPortraitEffect({ variant = 'serpent', paused = false, progress, className = '' }) {
@@ -137,7 +157,7 @@ export default function LivingPortraitEffect({ variant = 'serpent', paused = fal
       if (!dirty) return;
       uniforms.time.value = elapsed;
       if (!still) uniforms.voyage.value = travel?.get() || 0;
-      uniforms.eyelid.value = blinkAt(elapsed);
+      uniforms.eyelid.value = blinkAt(elapsed, variant);
       renderer.render(scene, camera);
       element.dataset.ready = 'true'; element.dataset.livingTime = elapsed.toFixed(2); element.dataset.blink = uniforms.eyelid.value.toFixed(3); dirty = false;
     };

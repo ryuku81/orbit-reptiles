@@ -17,7 +17,7 @@ const loadSDK = () => {
 const clamp = (n,a,b) => Math.min(b,Math.max(a,n));
 
 /** Original creator-hosted sculpt/scan, rendered by the official Sketchfab viewer. */
-export default function OfficialModelViewer({ model, paused=false, autoRotate=true, focus='full', resetKey=0, interactive=false, allowPageScroll=true, onReady, className='' }) {
+export default function OfficialModelViewer({ model, paused=false, autoRotate=true, focus='full', resetKey=0, interactive=false, compact=false, allowPageScroll=true, onReady, className='' }) {
   const host=useRef(null), iframe=useRef(null), options=useRef({}), controller=useRef(null);
   const [loaded,setLoaded]=useState(false),[ready,setReady]=useState(false),[error,setError]=useState(false),[retry,setRetry]=useState(0);
   const visibility=useRef(true);
@@ -34,8 +34,9 @@ export default function OfficialModelViewer({ model, paused=false, autoRotate=tr
   useEffect(()=>{
     if(!loaded)return;
     let disposed=false,api=null,timer=0,timeout=0,readyNow=false,rendering=false,elapsed=0,last=performance.now(),baseline=null,detailTarget=null;
-    let yaw=0,pitch=0,zoom=model.framingScale||1,spin=0,scrollAngle=0,scrollOrigin=window.scrollY,manualUntil=0,previousReset=options.current.resetKey,previousFocus=options.current.focus;
+    let yaw=0,pitch=0,zoom=model.framingScale||1,spin=0,scrollAngle=0,scrollOrigin=window.scrollY,manualUntil=0,hovering=false,previousReset=options.current.resetKey,previousFocus=options.current.focus;
     const frame=iframe.current,element=host.current;
+    hovering=interactive&&matchMedia('(hover: hover)').matches&&element.matches(':hover');
     setReady(false);setError(false);
     const shouldMove=()=>!options.current.paused&&visibility.current&&!document.hidden;
     const camera=(duration=.12)=>{
@@ -64,9 +65,12 @@ export default function OfficialModelViewer({ model, paused=false, autoRotate=tr
       if(!next&&rendering){api.stop();rendering=false;}
     };
     const pointerState=new Map();let gesture=null;
+    const enter=e=>{if(e.pointerType!=='touch')hovering=true;};
+    const leave=e=>{if(e.pointerType!=='touch')hovering=false;};
     const down=e=>{
-      if(!readyNow)return;
+      if(!readyNow||(e.pointerType==='mouse'&&e.button!==0))return;
       e.currentTarget.setPointerCapture(e.pointerId);
+      element.dataset.interacting='true';
       pointerState.set(e.pointerId,{x:e.clientX,y:e.clientY});
       const points=[...pointerState.values()];
       gesture={x:e.clientX,y:e.clientY,yaw,pitch,zoom,distance:points.length===2?Math.hypot(points[0].x-points[1].x,points[0].y-points[1].y):0};
@@ -80,20 +84,22 @@ export default function OfficialModelViewer({ model, paused=false, autoRotate=tr
       else {yaw=gesture.yaw-(e.clientX-gesture.x)/Math.max(300,element.clientWidth)*Math.PI*1.5;if(e.pointerType!=='touch')pitch=gesture.pitch+(e.clientY-gesture.y)/Math.max(300,element.clientHeight)*1.2;}
       camera(0);manualUntil=performance.now()+1500;
     };
-    const up=e=>{pointerState.delete(e.pointerId);gesture=null;manualUntil=performance.now()+1800;};
+    const up=e=>{pointerState.delete(e.pointerId);gesture=null;element.dataset.interacting='false';manualUntil=performance.now()+1800;};
     const keyboard=e=>{
+      if(e.ctrlKey||e.metaKey||e.altKey)return;
       const step=.15;
       if(e.key==='ArrowLeft')yaw-=step;else if(e.key==='ArrowRight')yaw+=step;else if(e.key==='ArrowUp')pitch+=step;else if(e.key==='ArrowDown')pitch-=step;else if(e.key==='+'||e.key==='=')zoom=clamp(zoom*.85,.45,1.8);else if(e.key==='-')zoom=clamp(zoom/ .85,.45,1.8);else return;
       e.preventDefault();camera(.2);manualUntil=performance.now()+1500;
     };
-    controller.current={update,visibility:setVisibility,down,move,up,keyboard};
+    controller.current={update,visibility:setVisibility,down,move,up,keyboard,enter,leave};
     const tick=()=>{
       if(disposed)return;
       const now=performance.now(),dt=Math.min((now-last)/1000,.15);last=now;
-      if(readyNow&&shouldMove()&&now>manualUntil&&!gesture){
+      if(readyNow&&shouldMove()&&now>manualUntil&&!gesture&&!hovering){
         elapsed+=dt;
         if(options.current.autoRotate)spin=Math.sin(elapsed*.16)*.23;
-        scrollAngle=clamp((window.scrollY-scrollOrigin)/Math.max(600,innerHeight)*.14,-.35,.35);
+        const targetScrollAngle=clamp((window.scrollY-scrollOrigin)/Math.max(600,innerHeight)*.14,-.35,.35);
+        scrollAngle+=(targetScrollAngle-scrollAngle)*(1-Math.exp(-dt*4));
         camera(.14);
       }
     };
@@ -104,7 +110,7 @@ export default function OfficialModelViewer({ model, paused=false, autoRotate=tr
       const client=new Sketchfab('1.12.1',frame);
       client.init(model.uid,{
         autostart:1,preload:0,animation_autoplay:0,camera:0,autospin:0,dnt:1,scrollwheel:0,
-        max_texture_size:interactive?4096:2048,ui_theme:'dark',ui_stop:0,ui_hint:0,ui_controls:interactive?1:0,
+        max_texture_size:interactive&&!compact?4096:2048,ui_theme:'dark',ui_stop:0,ui_hint:0,ui_controls:interactive?1:0,
         success(instance){
           if(disposed){instance.stop();return;}
           api=instance;api.start();rendering=true;
@@ -129,11 +135,11 @@ export default function OfficialModelViewer({ model, paused=false, autoRotate=tr
     const resize=new ResizeObserver(()=>camera(0));resize.observe(element);
     document.addEventListener('visibilitychange',setVisibility);
     return()=>{disposed=true;clearTimeout(timeout);clearInterval(timer);resize.disconnect();document.removeEventListener('visibilitychange',setVisibility);controller.current=null;if(api)api.stop();frame.src='about:blank';};
-  },[loaded,model.uid,retry]);
-  return <div ref={host} className={`official-model-viewer ${className}`} data-model-id={model.uid} data-ready={ready?'true':'false'}>
+  },[loaded,model.uid,retry,interactive,compact]);
+  return <div ref={host} className={`official-model-viewer ${compact?'official-model-card':''} ${className}`} data-model-id={model.uid} data-ready={ready?'true':'false'} onPointerEnter={e=>controller.current?.enter(e)} onPointerLeave={e=>controller.current?.leave(e)}>
     {loaded&&<iframe ref={iframe} title={`${model.title} — ${model.author} の精密3Dモデル`} allow="autoplay; fullscreen; xr-spatial-tracking; accelerometer; gyroscope" allowFullScreen tabIndex={interactive?0:-1} style={{pointerEvents:interactive?'auto':'none'}}/>}
     {!ready&&!error&&<div className="official-viewer-loading" role="status"><span className="viewer-loading-orbit"/><span>精密3Dモデルを読み込んでいます</span><small>{model.author}</small></div>}
     {error&&<div className="official-viewer-error" role="status"><strong>3Dモデルを読み込めませんでした</strong><span>ネットワークを確認して、もう一度お試しください。</span>{interactive?<button onClick={()=>setRetry(n=>n+1)}>再読み込み</button>:<small>詳細を開くと再読み込みできます</small>}</div>}
-    {interactive&&ready&&<div className="official-viewer-gesture" role="application" aria-label="3Dモデルを回転。左右のドラッグ、または矢印キーで操作。プラスとマイナスでズーム" tabIndex={0} onPointerDown={e=>controller.current?.down(e)} onPointerMove={e=>controller.current?.move(e)} onPointerUp={e=>controller.current?.up(e)} onPointerCancel={e=>controller.current?.up(e)} onKeyDown={e=>controller.current?.keyboard(e)} style={{touchAction:allowPageScroll?'pan-y':'none'}}/>}
+    {interactive&&ready&&<div className="official-viewer-gesture" role="application" aria-label={`${model.title}を回転。ドラッグ、または矢印キーで操作。プラスとマイナスでズーム`} tabIndex={0} onPointerDown={e=>controller.current?.down(e)} onPointerMove={e=>controller.current?.move(e)} onPointerUp={e=>controller.current?.up(e)} onPointerCancel={e=>controller.current?.up(e)} onLostPointerCapture={e=>controller.current?.up(e)} onKeyDown={e=>controller.current?.keyboard(e)} style={{touchAction:allowPageScroll?'pan-y':'none'}}/>}
   </div>;
 }
