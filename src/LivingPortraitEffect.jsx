@@ -13,6 +13,7 @@ uniform float time;
 uniform float voyage;
 uniform float creature;
 uniform float eyelid;
+uniform float response;
 varying vec2 vUv;
 varying vec2 vStrikeUv;
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
@@ -58,10 +59,10 @@ void main(){
     uv.y-=(uv.y-.615)*body*breath*.106;
     uv.x-=(uv.x-.70)*body*breath*.046;
     float throat=region(uv,vec2(.487,.663),vec2(.12,.105));
-    uv.y-=throat*sin(time*1.72-.5)*.0061;
+    uv.y-=throat*(sin(time*1.72-.5)*.0061+response*.008);
     float head=region(uv,vec2(.412,.795),vec2(.19,.17));
     vec2 neck=uv-vec2(.545,.718);
-    uv+=(turn(neck,sin(time*.58+.25)*.039+sin(time*.21)*.014)-neck)*head;
+    uv+=(turn(neck,sin(time*.58+.25)*.039+sin(time*.21)*.014+response*.085)-neck)*head;
     uv-=vec2(sin(time*.62)*.0055,sin(time*.77+.4)*.007)*head;
     float tail=region(uv,vec2(.825,.214),vec2(.17,.22));
     uv.x-=sin(time*.91+uv.y*5.)*.0082*tail;
@@ -73,7 +74,7 @@ void main(){
   float glance=time/2.9,stepIndex=floor(glance),settle=smoothstep(0.,.115,fract(glance));
   vec2 gazeFrom=vec2(hash(vec2(stepIndex,4.2)),hash(vec2(stepIndex,9.1)))-.5;
   vec2 gazeTo=vec2(hash(vec2(stepIndex+1.,4.2)),hash(vec2(stepIndex+1.,9.1)))-.5;
-  vec2 gaze=mix(gazeFrom,gazeTo,settle)*vec2(.42,.27);
+  vec2 gaze=mix(gazeFrom,gazeTo,settle)*vec2(.42,.27)+vec2(-.24,.13)*response;
   float iris=1.-smoothstep(.48,.94,length(e));
   vec3 original=sampleArt(uv-gaze*eyeRadius*iris*(1.-eyelid)*(creature<.5?1.-smoothstep(.02,.12,voyage):1.));
   float eyeShape=1.-smoothstep(.88,1.035,length(e));
@@ -103,7 +104,7 @@ void main(){
     float shine=exp(-pow((sweep-.5)*24.,2.))*skin;
     color+=vec3(.055,.025,.085)*shine;
   }else{
-    color*=1.14+body*breath*.024;
+    color*=1.14+body*breath*.024+response*.075;
     float jewel=pow(max(0.,light-.30)*1.3,3.);
     color+=vec3(.045,.085,.13)*jewel*(.5+.5*sin(time*1.2+uv.x*9.));
   }
@@ -124,9 +125,9 @@ function blinkAt(time, variant) {
   return Math.max(close(1.1), close(3.55), close(3.99) * .96, close(6.45), close(8.9));
 }
 
-export default function LivingPortraitEffect({ variant = 'serpent', paused = false, progress, className = '' }) {
-  const host = useRef(null), state = useRef({ paused, progress }), [near, setNear] = useState(false);
-  state.current = { paused, progress };
+export default function LivingPortraitEffect({ variant = 'serpent', paused = false, progress, reaction = 0, className = '' }) {
+  const host = useRef(null), state = useRef({ paused, progress, reaction }), [near, setNear] = useState(false);
+  state.current = { paused, progress, reaction };
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) { setNear(true); observer.disconnect(); }
@@ -143,11 +144,12 @@ export default function LivingPortraitEffect({ variant = 'serpent', paused = fal
     renderer.setPixelRatio(Math.min(devicePixelRatio, innerWidth < 640 ? 1.35 : 1.5));
     renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
     renderer.domElement.setAttribute('aria-hidden', 'true'); element.appendChild(renderer.domElement);
-    const uniforms = { artwork: { value: null }, strikeArtwork: { value: null }, strikeReady: { value: 0 }, time: { value: 0 }, voyage: { value: 0 }, creature: { value: variant === 'gecko' ? 1 : 0 }, eyelid: { value: 0 } };
+    const uniforms = { artwork: { value: null }, strikeArtwork: { value: null }, strikeReady: { value: 0 }, time: { value: 0 }, voyage: { value: 0 }, creature: { value: variant === 'gecko' ? 1 : 0 }, eyelid: { value: 0 }, response: { value: 0 } };
     const material = new THREE.ShaderMaterial({ uniforms, fragmentShader: fragment, vertexShader: variant==='serpent'?portraitVertexShader:'varying vec2 vUv;varying vec2 vStrikeUv;void main(){vUv=uv;vStrikeUv=uv;gl_Position=vec4(position.xy,0.,1.);}', depthTest: false, side: THREE.DoubleSide });
     const geometry = variant==='serpent'?createPortraitMorphGeometry():new THREE.PlaneGeometry(2, 2), scene = new THREE.Scene(), camera = new THREE.Camera();
     scene.add(new THREE.Mesh(geometry, material));
     let disposed = false, ready = false, visible = true, dirty = true, frame = 0, last = 0, elapsed = 0;
+    let lastReaction = 0, reactionStart = -Infinity;
     const source = variant === 'gecko' ? '/images/amethyst-reptile.webp' : '/images/celestial-serpent.webp';
     const texture = new THREE.TextureLoader().load(source, () => { if (disposed) return; uniforms.artwork.value = texture;if(!uniforms.strikeArtwork.value)uniforms.strikeArtwork.value=texture; ready = true; dirty = true; });
     const strikeTexture=variant==='serpent'?new THREE.TextureLoader().load('/images/celestial-serpent-strike.png',()=>{
@@ -163,10 +165,17 @@ export default function LivingPortraitEffect({ variant = 'serpent', paused = fal
       const { paused: stop, progress: travel } = state.current;
       const still = stop || reduced.matches;
       if (!still) { elapsed += dt; dirty = true; }
+      if (!still && state.current.reaction !== lastReaction) {
+        lastReaction = state.current.reaction; reactionStart = elapsed; dirty = true;
+      }
       if (!dirty) return;
+      const reactionAge = elapsed - reactionStart;
+      uniforms.response.value = variant === 'gecko' && reactionAge < 1.4 ? Math.sin(Math.PI * reactionAge / 1.4) * Math.exp(-reactionAge * .65) : 0;
       uniforms.time.value = elapsed;
       if (!still) uniforms.voyage.value = travel?.get() || 0;
-      uniforms.eyelid.value = variant === 'serpent' ? 0 : blinkAt(elapsed, variant);
+      const greetingBlink = THREE.MathUtils.smoothstep(reactionAge,.08,.18) * (1-THREE.MathUtils.smoothstep(reactionAge,.24,.43));
+      uniforms.eyelid.value = variant === 'serpent' ? 0 : Math.max(blinkAt(elapsed, variant), greetingBlink);
+      element.dataset.reaction = String(lastReaction); element.dataset.response = uniforms.response.value.toFixed(3);
       renderer.render(scene, camera);
       element.dataset.ready = 'true';element.dataset.jawOpen=(variant==='serpent'?THREE.MathUtils.smoothstep(uniforms.voyage.value,.12,.48)*uniforms.strikeReady.value:0).toFixed(3); element.dataset.livingTime = elapsed.toFixed(2); element.dataset.blink = uniforms.eyelid.value.toFixed(3); dirty = false;
     };

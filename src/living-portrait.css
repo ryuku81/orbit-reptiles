@@ -4,3 +4,10 @@
 .finale-serpent .finale-living-art{position:absolute;top:50%;left:0;width:100%;aspect-ratio:3/2;translate:0 -50%;mask-image:radial-gradient(ellipse 68% 65% at 50% 50%,#000 44%,transparent 92%),linear-gradient(0deg,transparent,#000 12%,#000 88%,transparent);mask-composite:intersect;animation:serpent-drift 14s ease-in-out infinite}
 .finale-serpent .finale-living-art>img{position:static;display:block;width:100%;height:100%;aspect-ratio:3/2;translate:none;object-fit:contain;mask-image:none;filter:none;animation:none}
 @media(prefers-reduced-motion:reduce){.living-portrait-effect{transition:none}.finale-serpent .finale-living-art{animation:none}}
+
+.finale-creature-touch{position:absolute;inset:0;width:100%;height:100%;padding:0;border:0;border-radius:0;background:transparent;pointer-events:auto;cursor:pointer;touch-action:manipulation;clip-path:polygon(23% 20%,42% 8%,73% 18%,94% 39%,97% 81%,80% 94%,51% 83%,25% 53%)}
+.finale-creature-touch:focus-visible{outline:3px solid #ebc2ff;outline-offset:-18px;background:#dc9dff12}
+.finale-creature-touch:disabled{cursor:default;pointer-events:none}
+.finale-copy{pointer-events:none}
+.finale-copy button{pointer-events:auto}
+.creature-hint{display:block;margin-top:12px;color:#c9a6df;font-size:10px;letter-spacing:.04em}
