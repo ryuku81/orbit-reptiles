@@ -25,8 +25,8 @@ npm run preview
 
 ## 主な機能
 
-- 元の宇宙ヘビの表紙から、作者制作の精密な3Dパイソンによる開口・突進へ切り替わるスクロール演出
-- 紫の光沢、口と胴体の連動、アメジストの爬虫類の生命表現
+- 元の宇宙ヘビの画像を保ったまま進む表紙のスクロール演出
+- アメジストの爬虫類の生命表現
 - 星雲、星屑、流星、スクロールに連動する視差と光の演出
 - 立体のヘビ・ワニと、翼の骨格アニメーションを持つ龍が惑星を周回
 - Sketchfab公式ビューによるカメレオンと4種類の爬虫類の精密3D展示
@@ -37,13 +37,13 @@ npm run preview
 - スムーズスクロール、スマホ操作、エフェクト停止、OSの動きを減らす設定
 - 任意でオンにする音と全画面表示（音は初期状態オフ）
 
-表紙の元画像を保持し、スクロール中はNestaeric制作のBlackhead Ball PythonをSketchfab公式Viewer APIで表示します。作者の攻撃アニメーションをスクロール位置に同期し、紫の真珠調の体表とカメラ接近を加えています。逆スクロールで巻き戻せます。画像と3Dモデルは別素材です。画面外では描画を休止し、停止中は現在の姿勢を維持します。OSの「動きを減らす」では元の表紙画像を表示します。末尾のアメジストの爬虫類は画像にシェーダー演出を加えたものです。
+表紙では、スクロール区間の最初から最後まで `public/images/celestial-serpent.webp` を表示します。別の3Dモデルへの切り替えや、3Dの開口・突進演出は使用しません。末尾のアメジストの爬虫類は画像にシェーダー演出を加えたものです。
 
 展示用のコンセプトサイトです。実際の販売・予約・フォーム送信は行いません。
 
 ## 素材・クレジット
 
-- 表紙のスクロール中の3Dヘビ：[Blackhead Ball Python](https://sketchfab.com/models/587aff215b4e4bd8939a1748e3ae7c42) / [Nestaeric](https://sketchfab.com/Nestaeric)。公式埋め込みを利用し、モデルファイルは再配布していません。[演出の構成](docs/hero-serpent.md)。
+- 表紙のヘビ：[宇宙ヘビの画像](public/images/celestial-serpent.webp)を使用。[演出の構成](docs/hero-serpent.md)。
 - 惑星を周回するモデル： [出典・ライセンス・加工内容](public/models/orbital/credits.json)。Grab3DのCC0素材と、LasquetiSpiceの龍（CC BY 4.0、afk.ai配布版）などを使用しています。
 - 精密3D展示： [モデル情報](public/model-provenance.json)。作者がホストするSketchfab公式ビューを使用し、元モデルのファイルは再配布していません。初回表示には外部サービスへの接続が必要です。
 - 画像： [出典記録](public/images/sources.json)。宇宙の参考画像は提供素材をWebPへ変換しています。
@@ -54,7 +54,7 @@ npm run preview
 ## 構成
 
 - `src/App.jsx` — ページ、ナビゲーション、コレクション、モーダル
-- `src/SerpentEncounter.jsx` — 作者の攻撃アニメーション・材質・カメラとスクロールの同期
+- `src/serpent-hero-stage.css` — 表紙画像とスマホのレイアウト
 - `src/ScrollJourney.jsx` / `src/OrbitalCreatures.js` — 惑星と周回する立体モデル
 - `src/OfficialModelViewer.jsx` — 公式3Dビューの操作とアニメーション
 - `src/LivingPortraitEffect.jsx` — 画像による爬虫類の呼吸・瞬き・光

@@ -1,7 +1,6 @@
-/* Keep the reference artwork intact, then reveal the authored 3D performance. */
-.serpent-3d-stage .serpent-reference-art{transition:none;transform-origin:68% 48%;will-change:opacity,transform;mix-blend-mode:screen}
+/* Preserve the same reference serpent throughout the hero's scroll sequence. */
+.serpent-3d-stage .serpent-reference-art{transition:none;transform-origin:68% 48%;will-change:transform;mix-blend-mode:screen}
 .serpent-3d-stage .serpent-reference-art img{top:48%;width:min(82vw,120svh);right:-3%;mask-image:radial-gradient(ellipse 72% 76% at 57% 50%,#000 45%,transparent 98%)}
-.serpent-precision-layer{position:absolute;inset:0;pointer-events:none}
 @media(max-width:640px){
  .serpent-3d-stage .serpent-reference-art{transform-origin:55% 48%}
  .serpent-3d-stage .serpent-reference-art img{width:132%;right:-17%;top:46%;mask-image:linear-gradient(transparent,#000 14%,#000 88%,transparent)}
