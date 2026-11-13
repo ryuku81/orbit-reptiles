@@ -14,7 +14,7 @@ export default function StarFinale({ paused = false }) {
     const rect = event.currentTarget.getBoundingClientRect();
     const x = event.detail ? event.clientX : rect.left + rect.width * .43;
     const y = event.detail ? event.clientY : rect.top + rect.height * .22;
-    window.dispatchEvent(new CustomEvent('orbit:burst', { detail: { x, y, power: 1.2 } }));
+    window.dispatchEvent(new CustomEvent('orbit:burst', { detail: { x, y, power: [1.2, 2, .8][reaction % 3] } }));
   };
   const { scrollYProgress } = useScroll({ target: section, offset: ['start end', 'end start'] });
   const progress = useFrozenMotion(scrollYProgress, paused, .5);
@@ -49,7 +49,7 @@ export default function StarFinale({ paused = false }) {
   return <section className={`star-finale ${charged?'supernova-active':''}`} ref={section} id="supernova">
     <div className="finale-aurora" aria-hidden="true"/>
     <motion.div className="finale-serpent" style={{ scale, rotate, y }}><div className="finale-living-art"><img src="/images/amethyst-reptile.webp" alt="" loading="lazy"/><Suspense fallback={null}><LivingPortraitEffect variant="gecko" paused={paused} progress={progress} reaction={reaction}/></Suspense><button type="button" className="finale-creature-touch" onClick={greet} disabled={paused} aria-label="紫のトカゲに触れて、星をきらめかせる" title="クリック / タップで反応"/></div></motion.div>
-    <div className="finale-copy"><span className="eyebrow">MAKE THE UNIVERSE YOURS</span><h2>その指先から、<br/><span>宇宙が生まれる。</span></h2><p>星を集めて、解き放つ。<br/>まだ見たことのない光を、この場所で。</p><span className="creature-hint">トカゲに触れると、星がきらめく。</span>
+    <div className="finale-copy"><span className="eyebrow">MAKE THE UNIVERSE YOURS</span><h2>その指先から、<br/><span>宇宙が生まれる。</span></h2><p>星を集めて、解き放つ。<br/>まだ見たことのない光を、この場所で。</p><span className="creature-hint">トカゲに触れて、3つのしぐさを見つけよう。</span>
       <button ref={button} className="supernova-button" disabled={paused} onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId);start();}} onPointerUp={()=>finish()} onPointerCancel={cancel} onKeyDown={e=>{if((e.key===' '||e.key==='Enter')&&!e.repeat){e.preventDefault();start();}}} onKeyUp={e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();finish();}}} onBlur={cancel} aria-label="SUPERNOVA: 長押しして星を解き放つ"><span className="supernova-fill"/><Sparkle weight="fill" size={21}/><span>{charged?'A STAR IS BORN':'SUPERNOVA'}</span><ArrowUpRight size={18}/></button>
       <span className="charge-hint" aria-live="polite">{paused?'エフェクトを再開すると遊べます':charged?'あなたの星が、きらめいた。':'長押しでチャージ / 離して解き放つ'}</span>
     </div>
