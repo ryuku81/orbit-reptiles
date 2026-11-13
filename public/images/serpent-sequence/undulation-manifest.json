@@ -1,0 +1,298 @@
+{
+  "count": 16,
+  "columns": 4,
+  "width": 316,
+  "height": 374,
+  "padding": 12,
+  "rescaled": false,
+  "frames": [
+    {
+      "index": 0,
+      "sourceLabel": 1,
+      "crop": [
+        2,
+        2,
+        294,
+        348
+      ],
+      "offset": [
+        12,
+        14
+      ],
+      "nativeSize": [
+        292,
+        346
+      ]
+    },
+    {
+      "index": 1,
+      "sourceLabel": 2,
+      "crop": [
+        298,
+        2,
+        589,
+        348
+      ],
+      "offset": [
+        12,
+        14
+      ],
+      "nativeSize": [
+        291,
+        346
+      ]
+    },
+    {
+      "index": 2,
+      "sourceLabel": 3,
+      "crop": [
+        593,
+        2,
+        884,
+        348
+      ],
+      "offset": [
+        12,
+        14
+      ],
+      "nativeSize": [
+        291,
+        346
+      ]
+    },
+    {
+      "index": 3,
+      "sourceLabel": 4,
+      "crop": [
+        888,
+        2,
+        1122,
+        348
+      ],
+      "offset": [
+        41,
+        14
+      ],
+      "nativeSize": [
+        234,
+        346
+      ]
+    },
+    {
+      "index": 4,
+      "sourceLabel": 5,
+      "crop": [
+        2,
+        352,
+        294,
+        698
+      ],
+      "offset": [
+        12,
+        14
+      ],
+      "nativeSize": [
+        292,
+        346
+      ]
+    },
+    {
+      "index": 5,
+      "sourceLabel": 6,
+      "crop": [
+        298,
+        352,
+        589,
+        698
+      ],
+      "offset": [
+        12,
+        14
+      ],
+      "nativeSize": [
+        291,
+        346
+      ]
+    },
+    {
+      "index": 6,
+      "sourceLabel": 7,
+      "crop": [
+        593,
+        352,
+        884,
+        698
+      ],
+      "offset": [
+        12,
+        14
+      ],
+      "nativeSize": [
+        291,
+        346
+      ]
+    },
+    {
+      "index": 7,
+      "sourceLabel": 8,
+      "crop": [
+        888,
+        352,
+        1122,
+        698
+      ],
+      "offset": [
+        41,
+        14
+      ],
+      "nativeSize": [
+        234,
+        346
+      ]
+    },
+    {
+      "index": 8,
+      "sourceLabel": 9,
+      "crop": [
+        2,
+        702,
+        294,
+        1048
+      ],
+      "offset": [
+        12,
+        14
+      ],
+      "nativeSize": [
+        292,
+        346
+      ]
+    },
+    {
+      "index": 9,
+      "sourceLabel": 10,
+      "crop": [
+        298,
+        702,
+        589,
+        1048
+      ],
+      "offset": [
+        12,
+        14
+      ],
+      "nativeSize": [
+        291,
+        346
+      ]
+    },
+    {
+      "index": 10,
+      "sourceLabel": 11,
+      "crop": [
+        593,
+        702,
+        884,
+        1048
+      ],
+      "offset": [
+        12,
+        14
+      ],
+      "nativeSize": [
+        291,
+        346
+      ]
+    },
+    {
+      "index": 11,
+      "sourceLabel": 12,
+      "crop": [
+        888,
+        702,
+        1122,
+        1048
+      ],
+      "offset": [
+        41,
+        14
+      ],
+      "nativeSize": [
+        234,
+        346
+      ]
+    },
+    {
+      "index": 12,
+      "sourceLabel": 13,
+      "crop": [
+        2,
+        1052,
+        294,
+        1402
+      ],
+      "offset": [
+        12,
+        12
+      ],
+      "nativeSize": [
+        292,
+        350
+      ]
+    },
+    {
+      "index": 13,
+      "sourceLabel": 14,
+      "crop": [
+        298,
+        1052,
+        589,
+        1402
+      ],
+      "offset": [
+        12,
+        12
+      ],
+      "nativeSize": [
+        291,
+        350
+      ]
+    },
+    {
+      "index": 14,
+      "sourceLabel": 15,
+      "crop": [
+        593,
+        1052,
+        884,
+        1402
+      ],
+      "offset": [
+        12,
+        12
+      ],
+      "nativeSize": [
+        291,
+        350
+      ]
+    },
+    {
+      "index": 15,
+      "sourceLabel": 16,
+      "crop": [
+        888,
+        1052,
+        1122,
+        1402
+      ],
+      "offset": [
+        41,
+        12
+      ],
+      "nativeSize": [
+        234,
+        350
+      ]
+    }
+  ]
+}
