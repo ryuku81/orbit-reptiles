@@ -82,13 +82,13 @@ void main(){
   vec2 px=vec2(vScreen.x,1.-vScreen.y)*vec2(1536.,1024.);
   float head=smoothstep(285.,335.,px.x)*(1.-smoothstep(600.,690.,px.x));
   head*=smoothstep(115.,146.,px.y)*(1.-smoothstep(7.05,8.,vBand));
-  // Reveal the mouth texture while it is still narrow. Subsequent movement is
-  // geometry articulation, so there are no two overlapping eyes or jaws.
+  // Reveal the mouth first, then change the outer skin over a short interval.
+  // The remaining opening is carried by the connected jaw geometry.
   float interior=smoothstep(5.9,6.15,vBand)*(1.-smoothstep(6.85,7.15,vBand));
   vec2 sourcePx=vec2(vStrike.x,1.-vStrike.y)*vec2(1536.,1024.);
   float mouthLeft=340.+55.*smoothstep(230.,290.,sourcePx.y)+8.*smoothstep(290.,330.,sourcePx.y);
   interior*=smoothstep(mouthLeft-4.,mouthLeft+4.,sourcePx.x)*(1.-smoothstep(520.,565.,sourcePx.x));
-  float textureBlend=mix(smoothstep(.015,.40,opening),smoothstep(0.,.06,opening),interior);
+  float textureBlend=mix(smoothstep(.075,.18,opening),smoothstep(0.,.06,opening),interior);
   vec3 portrait=mix(closed,opened,textureBlend);
   vec3 color=mix(background,portrait,head);
   vec2 edge=min(vScreen,1.-vScreen);
