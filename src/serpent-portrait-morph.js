@@ -23,14 +23,14 @@ function rows(profile = [150, 250, 318, 330]) {
 }
 
 export function createSerpentPortraitGeometry() {
-  const rest = [], strike = [], positions = [], indices = [];
+  const rest = [], strike = [], positions = [], bands = [], indices = [];
   const count = 13;
   for (const [x, openX, closed, opened] of columns) {
     const from = rows(closed), to = rows(opened);
     for (let row = 0; row < count; row++) {
       const moves = row >= 2 && row <= 8;
       const u = x / 1536, v = 1 - from[row] / 1024;
-      rest.push(u, v);
+      rest.push(u, v); bands.push(row);
       strike.push((moves ? openX : x) / 1536, 1 - to[row] / 1024);
       positions.push(u * 2 - 1, v * 2 - 1, 0);
     }
@@ -45,18 +45,22 @@ export function createSerpentPortraitGeometry() {
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(rest, 2));
   geometry.setAttribute('strikeUv', new THREE.Float32BufferAttribute(strike, 2));
+  geometry.setAttribute('anatomicalBand', new THREE.Float32BufferAttribute(bands, 1));
   geometry.setIndex(indices);
   return geometry;
 }
 
 export const serpentPortraitVertex = `
 attribute vec2 strikeUv;
+attribute float anatomicalBand;
 uniform float opening;
 varying vec2 vRest;
 varying vec2 vStrike;
 varying vec2 vScreen;
+varying float vBand;
 void main(){
   vRest=uv;
+  vBand=anatomicalBand;
   vStrike=strikeUv;
   vScreen=mix(uv,strikeUv,opening);
   gl_Position=vec4(vScreen*2.-1.,0.,1.);
@@ -69,6 +73,7 @@ uniform float opening;
 varying vec2 vRest;
 varying vec2 vStrike;
 varying vec2 vScreen;
+varying float vBand;
 void main(){
   // The original body, planet and background never pass through the head warp.
   vec3 background=texture2D(artwork,vScreen).rgb;
@@ -76,10 +81,14 @@ void main(){
   vec3 opened=texture2D(strikeArtwork,vStrike).rgb;
   vec2 px=vec2(vScreen.x,1.-vScreen.y)*vec2(1536.,1024.);
   float head=smoothstep(285.,335.,px.x)*(1.-smoothstep(600.,690.,px.x));
-  head*=smoothstep(115.,146.,px.y)*(1.-smoothstep(445.,478.,px.y));
+  head*=smoothstep(115.,146.,px.y)*(1.-smoothstep(7.05,8.,vBand));
   // Reveal the mouth texture while it is still narrow. Subsequent movement is
   // geometry articulation, so there are no two overlapping eyes or jaws.
-  float textureBlend=smoothstep(0.,.075,opening);
+  float interior=smoothstep(5.9,6.15,vBand)*(1.-smoothstep(6.85,7.15,vBand));
+  vec2 sourcePx=vec2(vStrike.x,1.-vStrike.y)*vec2(1536.,1024.);
+  float mouthLeft=340.+55.*smoothstep(230.,290.,sourcePx.y)+8.*smoothstep(290.,330.,sourcePx.y);
+  interior*=smoothstep(mouthLeft-4.,mouthLeft+4.,sourcePx.x)*(1.-smoothstep(520.,565.,sourcePx.x));
+  float textureBlend=mix(smoothstep(.015,.40,opening),smoothstep(0.,.06,opening),interior);
   vec3 portrait=mix(closed,opened,textureBlend);
   vec3 color=mix(background,portrait,head);
   vec2 edge=min(vScreen,1.-vScreen);
