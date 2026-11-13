@@ -17,3 +17,11 @@
  .serpent-3d-stage .voyage-invitation{bottom:48px;font-size:7px}
 }
 @media(prefers-reduced-motion:reduce){.serpent-portrait,.serpent-3d-stage .serpent-art-frame>img{transition:none}}
+
+/* Keep the loading/fallback poster blended too; never expose its hard image bounds. */
+.serpent-3d-stage .serpent-art-frame>img{
+ mask-image:linear-gradient(to right,transparent,#000 19%,#000 81%,transparent),linear-gradient(to bottom,transparent,#000 19%,#000 81%,transparent);
+ mask-composite:intersect;
+ -webkit-mask-image:linear-gradient(to right,transparent,#000 19%,#000 81%,transparent),linear-gradient(to bottom,transparent,#000 19%,#000 81%,transparent);
+ -webkit-mask-composite:source-in;
+}

@@ -18,9 +18,11 @@ void main(){
  vec3 ca=texture2D(poseA,clamp(a,0.,1.)).rgb;
  vec3 cb=texture2D(poseB,clamp(b,0.,1.)).rgb;
  vec3 color=mix(ca,cb,smoothstep(0.,1.,t));
- // Only feather the outside few pixels to soften the rectangular background seam.
- float edge=min(min(uv.x,1.-uv.x),min(uv.y,1.-uv.y));
- gl_FragColor=vec4(color,smoothstep(0.,.015,edge));
+ // Broad, rounded falloff removes the image rectangle while the central face stays opaque.
+ vec2 d=abs(uv-.5)*2.;
+ float radius=pow(pow(d.x,4.)+pow(d.y,4.),.25);
+ float alpha=1.-smoothstep(.62,1.,radius);
+ gl_FragColor=vec4(color,alpha);
 }`;
 
 export async function createSerpentRenderer(canvas, signal) {
