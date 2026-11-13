@@ -1,15 +1,19 @@
-/* Preserve the same reference serpent throughout the hero's scroll sequence. */
-.serpent-3d-stage .serpent-reference-art{transition:none;transform-origin:68% 48%;will-change:transform;mix-blend-mode:screen}
-.serpent-3d-stage .serpent-reference-art img{top:48%;width:min(82vw,120svh);right:-3%;mask-image:radial-gradient(ellipse 72% 76% at 57% 50%,#000 45%,transparent 98%)}
+/* A single illustrated serpent: feathered into space, then aimed at its mouth. */
+.serpent-3d-stage .serpent-reference-art{opacity:1;transition:none;mix-blend-mode:normal}
+.serpent-art-frame{position:absolute;top:48%;width:min(82vw,120svh);right:-3%;aspect-ratio:3/2;translate:0 -50%;transform-origin:28% 31%;will-change:transform}
+.serpent-3d-stage .serpent-art-frame>img{position:absolute;inset:0;width:100%;height:100%;translate:none;object-fit:contain;mask-image:linear-gradient(180deg,transparent,#000 12%,#000 88%,transparent),linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);mask-composite:intersect;opacity:1;transition:opacity .25s}
+.serpent-art-frame.is-portrait-ready>img{opacity:0}
+.serpent-portrait{position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity .25s}
+.serpent-portrait[data-ready=true]{opacity:1}
+.serpent-portrait canvas{display:block;width:100%;height:100%}
 @media(max-width:640px){
- .serpent-3d-stage .serpent-reference-art{transform-origin:55% 48%}
- .serpent-3d-stage .serpent-reference-art img{width:132%;right:-17%;top:46%;mask-image:linear-gradient(transparent,#000 14%,#000 88%,transparent)}
+ .serpent-art-frame{width:132%;right:-17%;top:46%}
 }
 @media(max-width:640px) and (max-height:740px){
- .serpent-3d-stage .serpent-reference-art img{width:min(132%,calc((100svh - 370px)*1.5));right:calc((100% - min(132%,calc((100svh - 370px)*1.5)))/2);top:47%}
+ .serpent-art-frame{width:min(132%,calc((100svh - 370px)*1.5));right:calc((100% - min(132%,calc((100svh - 370px)*1.5)))/2);top:47%}
  .serpent-3d-stage .hero-content{padding-top:16px}
  .serpent-3d-stage .hero-japanese{display:none}
  .serpent-3d-stage .hero-ctas{bottom:82px}
  .serpent-3d-stage .voyage-invitation{bottom:48px;font-size:7px}
 }
-@media(prefers-reduced-motion:reduce){.serpent-3d-stage .serpent-reference-art{will-change:auto}}
+@media(prefers-reduced-motion:reduce){.serpent-art-frame{will-change:auto}.serpent-portrait,.serpent-3d-stage .serpent-art-frame>img{transition:none}}
