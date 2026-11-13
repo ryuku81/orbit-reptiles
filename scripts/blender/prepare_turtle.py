@@ -5,24 +5,26 @@ from mathutils import Vector
 root=Path(__file__).resolve().parents[2]
 scene=bpy.data.scenes.get('Orbit Creature Studio')
 if scene:bpy.context.window.scene=scene
-obj=bpy.data.objects.get('sea-turtle')
-if obj is None:
- bpy.ops.import_scene.gltf(filepath=str(root/'.qa/orbital-sources/turtle-source.glb'))
- obj=next(o for o in bpy.context.selected_objects if o.type=='MESH');obj.name='sea-turtle'
- bpy.context.view_layer.objects.active=obj;bpy.ops.object.transform_apply(location=False,rotation=True,scale=True)
- lo=Vector([min(v.co[i] for v in obj.data.vertices) for i in range(3)]);hi=Vector([max(v.co[i] for v in obj.data.vertices) for i in range(3)]);center=(lo+hi)/2;factor=1/max(hi-lo)
- for v in obj.data.vertices:v.co=(v.co-center)*factor
- mod=obj.modifiers.new('Web silhouette','DECIMATE');mod.ratio=min(1,60000/len(obj.data.polygons));bpy.ops.object.modifier_apply(modifier=mod.name)
+# Always rebuild from the undeformed source, never a previously posed studio mesh.
+old=bpy.data.objects.get('sea-turtle')
+if old:bpy.data.objects.remove(old,do_unlink=True)
+bpy.ops.object.select_all(action='DESELECT')
+bpy.ops.import_scene.gltf(filepath=str(root/'.qa/orbital-sources/turtle-source.glb'))
+obj=next(o for o in bpy.context.selected_objects if o.type=='MESH');obj.name='sea-turtle'
+bpy.context.view_layer.objects.active=obj;bpy.ops.object.transform_apply(location=False,rotation=True,scale=True)
+lo=Vector([min(v.co[i] for v in obj.data.vertices) for i in range(3)]);hi=Vector([max(v.co[i] for v in obj.data.vertices) for i in range(3)]);center=(lo+hi)/2;factor=1/max(hi-lo)
+for v in obj.data.vertices:v.co=(v.co-center)*factor
+mod=obj.modifiers.new('Web silhouette','DECIMATE');mod.ratio=min(1,60000/len(obj.data.polygons));bpy.ops.object.modifier_apply(modifier=mod.name)
 obj.location=(0,0,0)
 if obj.data.shape_keys:obj.shape_key_clear()
 for poly in obj.data.polygons:poly.use_smooth=True
-obj.shape_key_add(name='Basis')
+obj.shape_key_add(name='Basis',from_mix=False)
 def smooth(a,b,x):
  t=max(0,min(1,(x-a)/(b-a)));return t*t*(3-2*t)
 report={}
 for side,label in [(-1,'Left'),(1,'Right')]:
- for stroke,angle,sweep in [('recovery',.72,.035),('power',-.62,-.045)]:
-  key=obj.shape_key_add(name=f'{label} front {stroke}')
+ for stroke,angle,sweep in [('recovery',.38,.012),('power',-.46,-.018)]:
+  key=obj.shape_key_add(name=f'{label} front {stroke}',from_mix=False)
   greatest=0
   for base,v in zip(obj.data.shape_keys.key_blocks[0].data,key.data):
    x,y,z=base.co
@@ -34,13 +36,13 @@ for side,label in [(-1,'Left'),(1,'Right')]:
    greatest=max(greatest,(v.co-base.co).length)
   report[key.name]=greatest
  for direction,sign in [('out',1),('in',-1)]:
-  key=obj.shape_key_add(name=f'{label} rear {direction}')
+  key=obj.shape_key_add(name=f'{label} rear {direction}',from_mix=False)
   for base,v in zip(obj.data.shape_keys.key_blocks[0].data,key.data):
    x,y,z=base.co
    if x*side<=0:continue
-   w=smooth(.22,.31,y)*smooth(.065,.14,abs(x));a=sign*.28*w
+   w=smooth(.22,.31,y)*smooth(.065,.14,abs(x));a=sign*.12*w
    dx=abs(x)-.105;dy=y-.27
-   v.co=(side*(.105+dx*math.cos(a)-dy*math.sin(a)),.27+dx*math.sin(a)+dy*math.cos(a),z+sign*.045*w)
+   v.co=(side*(.105+dx*math.cos(a)-dy*math.sin(a)),.27+dx*math.sin(a)+dy*math.cos(a),z+sign*.016*w)
 scene.render.fps=30;scene.frame_start=1;scene.frame_end=145
 for frame in range(1,146,3):
  t=(frame-1)/144

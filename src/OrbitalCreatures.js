@@ -47,7 +47,7 @@ export function createOrbitalCreatures({ onReady, onError }) {
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder), residents = [], assets = new Map(), templates = [];
   let disposed = false;
   const load = id => {
-    if (!assets.has(id)) assets.set(id, loader.loadAsync(`/models/orbital/${id}-living.glb`).then(gltf => {
+    if (!assets.has(id)) assets.set(id, loader.loadAsync(`/models/orbital/${id}-living.glb${id === 'turtle' ? '?v=swim-2' : ''}`).then(gltf => {
       if (disposed) { releaseModel(gltf.scene); return null; }
       templates.push(gltf.scene);
       gltf.scene.traverse(node => {

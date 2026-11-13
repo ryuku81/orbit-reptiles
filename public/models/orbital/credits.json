@@ -83,7 +83,7 @@
     "download": "https://grab3d.com/dl/sea-turtle/sea-turtle-light.glb",
     "license": "CC0-1.0",
     "licenseUrl": "https://grab3d.com/dl/sea-turtle/LICENSE.txt",
-    "bytes": 4864268,
-    "modifications": "Blender normalization, 60k-face simplification, independent left/right shoulder recovery and power strokes, rear flipper steering, 4.8-second swim/glide cycle; meshopt compression. Runtime nocturnal materials."
+    "bytes": 4375076,
+    "modifications": "Rebuilt from the undeformed source in Blender; 60k-face simplification; basis-relative shoulder strokes with restrained angles and subtle rear flipper steering; 4.8-second swim/glide cycle; meshopt compression. Runtime nocturnal materials."
   }
 ]

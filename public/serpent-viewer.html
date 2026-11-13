@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Celestial serpent</title>
+  <style>
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
+    iframe{display:block;position:absolute;inset:0;width:100%;height:100%;border:0;background:transparent}
+  </style>
+</head>
+<body>
+  <iframe id="model" title="Blackhead Ball Python by Nestaeric" allow="autoplay; fullscreen; xr-spatial-tracking" tabindex="-1"></iframe>
+  <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js"></script>
+  <script>
+    const uid='587aff215b4e4bd8939a1748e3ae7c42';
+    window.report={uid};
+    window.ready=false;
+    const wrap=(method,...args)=>new Promise((resolve,reject)=>window.api[method](...args,(err,value)=>err?reject(err):resolve(value)));
+    window.wrap=wrap;
+    const notify=type=>parent.postMessage({source:'orbit-serpent',type},location.origin);
+
+    // Preserve this sequence: the hosted rig must finish metadata initialization
+    // before the parent selects an animation and begins seeking its skeleton.
+    if(window.Sketchfab){
+      new Sketchfab('1.12.1',document.getElementById('model')).init(uid,{
+        autostart:1,preload:1,animation_autoplay:0,transparent:1,
+        ui_controls:0,ui_infos:0,ui_hint:0,ui_stop:0,ui_annotations:0,
+        ui_watermark:0,ui_watermark_link:0,ui_loading:0,
+        camera:0,scrollwheel:0,dnt:1,max_texture_size:4096,
+        success(api){
+          window.api=api;
+          api.start();
+          api.addEventListener('viewerready',async()=>{
+            try{
+              api.pause();
+              api.setTextureQuality('hd',()=>{});
+              api.setUserInteraction(false,()=>{});
+              report.animations=await wrap('getAnimations');
+              report.camera=await wrap('getCameraLookAt');
+              report.nodes=await wrap('getNodeMap');
+              report.materials=await wrap('getMaterialList');
+              window.ready=true;
+              notify('ready');
+            }catch(e){window.error=String(e);notify('error');}
+          });
+        },
+        error(e){window.error=String(e);notify('error');}
+      });
+    }else{notify('error');}
+  </script>
+</body>
+</html>

@@ -6,4 +6,5 @@ import './styles.css';
 import './cosmic.css';
 import './showcase.css';
 import './spectrum.css';
+import './serpent-hero-stage.css';
 createRoot(document.getElementById('root')).render(<React.StrictMode><App /></React.StrictMode>);

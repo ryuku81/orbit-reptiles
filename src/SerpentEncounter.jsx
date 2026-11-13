@@ -1,317 +1,153 @@
 import { useEffect, useRef } from 'react';
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import './serpent-encounter.css';
 
-const clamp = (n, min = 0, max = 1) => Math.max(min, Math.min(max, n));
-const smooth = (a, b, n) => { const t = clamp((n - a) / (b - a)); return t * t * (3 - 2 * t); };
-const phaseName = p => p < .18 ? 'curious' : p < .38 ? 'recoil' : p < .58 ? 'gape' : p < .82 ? 'strike' : 'pass';
-const readProgress = value => clamp(typeof value === 'number' ? value : value?.get?.() || 0);
-
-/** The opening, coiling and strike all articulate real geometry in one scene. */
-export default function SerpentEncounter({ progress, paused = false, reduced = false, onReady }) {
-  const hostRef = useRef(null);
-  const propsRef = useRef({ progress, paused, reduced, onReady });
-  const refreshRef = useRef(null);
-  useEffect(() => {
-    propsRef.current = { progress, paused, reduced, onReady };
-    refreshRef.current?.();
-  }, [progress, paused, reduced, onReady]);
-
-  useEffect(() => {
-    const host = hostRef.current;
-    if (!host) return undefined;
-    let renderer, frame = 0, resizeFrame = 0, disposed = false, lost = false;
-    let visible = true, loaded = false, previous = 0, elapsed = 0, poseProgress = 0;
-    let width = 1, height = 1, mobile = false, fit = 1;
-    let gltfRoot, head, jaw, tongue, contract = {}, poses;
-    let restJaw, restTongue;
-    const fangs = [], smallTeeth = [], morphMeshes = [], skinMaterials = [];
-    const resources = new Set(), cleanups = [];
-    const media = matchMedia('(prefers-reduced-motion: reduce)');
-    const addResource = value => { resources.add(value); return value; };
-    const motionReduced = () => propsRef.current.reduced || media.matches;
-    const active = () => loaded && !disposed && !lost && visible && !document.hidden && !propsRef.current.paused && !motionReduced();
-    const cleanup = () => {
-      disposed = true;
-      cancelAnimationFrame(frame); cancelAnimationFrame(resizeFrame);
-      cleanups.forEach(fn => fn());
-      resources.forEach(resource => resource.dispose?.());
-      renderer?.dispose(); renderer?.forceContextLoss(); renderer?.domElement.remove();
-      refreshRef.current = null;
-    };
-
-    try {
-      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance' });
-      renderer.setClearColor(0x000000, 0);
-      renderer.outputColorSpace = THREE.SRGBColorSpace;
-      renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = .9;
-      renderer.domElement.setAttribute('aria-hidden', 'true');
-      host.appendChild(renderer.domElement);
-      const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(38, 1, .055, 70);
-      camera.position.set(0, 0, 8.5);
-      const placement = new THREE.Group(), animal = new THREE.Group();
-      scene.add(placement); placement.add(animal);
-      const environmentScene = new RoomEnvironment();
-      const pmrem = new THREE.PMREMGenerator(renderer);
-      const environment = addResource(pmrem.fromScene(environmentScene, .04));
-      scene.environment = environment.texture;
-      environmentScene.dispose(); pmrem.dispose();
-
-      scene.add(new THREE.HemisphereLight('#b3a6ed', '#160725', .32));
-      const key = new THREE.DirectionalLight('#d7d4ff', 1.65); key.position.set(-3, 5, 6); scene.add(key);
-      const cool = new THREE.DirectionalLight('#92bdff', 1.8); cool.position.set(4, 1, 3); scene.add(cool);
-      const rim = new THREE.DirectionalLight('#9950ff', 4); rim.position.set(1, 3, -4); scene.add(rim);
-      const lowerLight = new THREE.PointLight('#fb8de9', 3, 16, 2); lowerLight.position.set(-2, -3, 3); scene.add(lowerLight);
-      const mouthLight = new THREE.PointLight('#d993ff', 0, 4, 2); scene.add(mouthLight);
-
-      // These few real particles give the approaching head depth without a bloom pass.
-      let seed = 71425;
-      const random = () => { seed = seed * 16807 % 2147483647; return (seed - 1) / 2147483646; };
-      const motesPositions = new Float32Array(180 * 3), motesPhase = new Float32Array(180);
-      for (let i = 0; i < 180; i++) {
-        motesPositions.set([(random() - .5) * 9, (random() - .5) * 8, (random() - .5) * 5], i * 3);
-        motesPhase[i] = random() * 6.283;
-      }
-      const motesGeometry = addResource(new THREE.BufferGeometry());
-      motesGeometry.setAttribute('position', new THREE.BufferAttribute(motesPositions, 3));
-      motesGeometry.setAttribute('phase', new THREE.BufferAttribute(motesPhase, 1));
-      const motesMaterial = addResource(new THREE.ShaderMaterial({
-        uniforms: { time: { value: 0 }, energy: { value: 0 }, dpr: { value: 1 }, fade: { value: 1 } },
-        vertexShader: `attribute float phase; uniform float time;uniform float energy;uniform float dpr;varying float vGlow;void main(){vec3 p=position;p.y+=sin(time*.25+phase)*.12;p.xy*=1.+energy*.2;p.z+=energy*2.;vec4 mv=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*mv;gl_PointSize=clamp((1.3+sin(phase)*.5)*dpr*9./-mv.z,1.,8.);vGlow=.35+.3*sin(time+phase);}`,
-        fragmentShader: `uniform float fade;varying float vGlow;void main(){float d=length(gl_PointCoord-.5);float a=exp(-d*d*35.);if(d>.5)discard;gl_FragColor=vec4(.78,.48,1.,a*vGlow*fade);}`,
-        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-      }));
-      const motes = new THREE.Points(motesGeometry, motesMaterial); motes.frustumCulled = false; scene.add(motes);
-
-      const initialBounds = new THREE.Box3(), initialSize = new THREE.Vector3(), initialCenter = new THREE.Vector3();
-      const headWorld = new THREE.Vector3(), mouthFocus = new THREE.Vector3(), mouthOffset = new THREE.Vector3(), mouthScreen = new THREE.Vector3();
-      const focusLocal = new THREE.Vector3(0, -.25, .75), lightOffset = new THREE.Vector3();
-      const quaternionA = new THREE.Quaternion(), quaternionB = new THREE.Quaternion();
-      const euler = new THREE.Euler();
-      const poseQuaternion = pose => {
-        if (pose.quaternion) return new THREE.Quaternion().fromArray(pose.quaternion);
-        return new THREE.Quaternion().setFromEuler(new THREE.Euler(...(pose.rotation || [0, 0, 0])));
-      };
-      const normalizedPose = (pose, fallback) => ({
-        position: new THREE.Vector3().fromArray(pose?.position || fallback.position.toArray()),
-        quaternion: pose ? poseQuaternion(pose) : fallback.quaternion.clone(),
-      });
-      const applyHeadPose = (from, to, t) => {
-        head.position.copy(from.position).lerp(to.position, t);
-        quaternionA.copy(from.quaternion); quaternionB.copy(to.quaternion);
-        head.quaternion.copy(quaternionA).slerp(quaternionB, t);
-      };
-      const setMorph = (name, weight) => {
-        for (const mesh of morphMeshes) {
-          const key = Object.keys(mesh.morphTargetDictionary).find(key => key.toLowerCase() === name.toLowerCase());
-          if (key !== undefined) mesh.morphTargetInfluences[mesh.morphTargetDictionary[key]] = weight;
-        }
-      };
-      const pose = p => {
-        if (!loaded) return;
-        const tension = smooth(.18, .38, p);
-        const opening = smooth(.36, .56, p);
-        const strike = smooth(.58, .82, p);
-        const exit = smooth(.85, 1, p);
-        const neckRise = smooth(.38, .58, p) * .22;
-        const morphStrike = neckRise + (1 - neckRise) * strike;
-        const breathe = Math.sin(elapsed * 1.9) * (1 - smooth(.36, .66, p));
-        const curious = (1 - tension) * (1 - opening);
-        setMorph(contract.morphNames?.recoil || 'recoil', tension * (1 - morphStrike));
-        setMorph(contract.morphNames?.strike || 'strike', morphStrike);
-        setMorph(contract.mouth?.halfMorph || 'gapeHalf', Math.max(0, 1 - Math.abs(opening - .5) * 2));
-        setMorph(contract.mouth?.fullMorph || 'gape', Math.max(0, opening * 2 - 1));
-        if (head && poses) {
-          if (p < .38) applyHeadPose(poses.rest, poses.recoil, tension);
-          else applyHeadPose(poses.recoil, poses.strike, morphStrike);
-          // Tiny anatomical motion stays at the head/neck, not on the background.
-          head.position.y += .018 * breathe;
-          euler.set(Math.sin(elapsed * .64) * .018 * curious, Math.sin(elapsed * .42) * .045 * curious, Math.sin(elapsed * .57) * .012 * curious);
-          head.quaternion.multiply(quaternionA.setFromEuler(euler));
-        }
-        const jawAngle = opening * (contract.jaw?.maxAngle || 1.3);
-        if (jaw) {
-          jaw.rotation.copy(restJaw);
-          jaw.rotation[contract.jaw?.axis || 'x'] += jawAngle * (contract.jaw?.sign ?? 1);
-        }
-        for (const fang of fangs) fang.node.rotation.x = fang.rest + ((contract.fangs?.openAngle ?? 0) - (contract.fangs?.closedAngle ?? 1.2)) * opening;
-        for (const tooth of smallTeeth) tooth.visible = opening > .12;
-        if (tongue && restTongue) {
-          tongue.position.copy(restTongue);
-          tongue.position.z += Math.max(0, Math.sin(elapsed * 2.8)) ** 16 * .085 * curious;
-          tongue.rotation.z = Math.sin(elapsed * 7) * .018 * (opening + curious * .2);
-        }
-
-        const viewHeight = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z;
-        const centerX = THREE.MathUtils.lerp(mobile ? .54 : .70, .50, strike);
-        const centerY = THREE.MathUtils.lerp(mobile ? .50 : .45, .50, strike);
-        animal.scale.set(fit, fit * (1 + breathe * .008), fit);
-        animal.rotation.set(0, Math.sin(elapsed * .34) * .025 * curious, -.035 * tension * (1 - strike));
-        placement.position.set((centerX - .5) * viewHeight * camera.aspect, (.5 - centerY) * viewHeight, 0);
-        if (head) {
-          head.localToWorld(mouthFocus.copy(focusLocal));
-          mouthOffset.copy(mouthFocus).sub(placement.position);
-          const mouthWidth = contract.head?.width || .95;
-          const fitMouthWidth = fit * mouthWidth / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect * .84);
-          const lensDistance = Math.max(.9, fit * 2.15, fitMouthWidth);
-          // Aim the open mouth at the lens, rather than enlarging the entire
-          // animal around its body center. Its neck and coils follow in real Z.
-          placement.position.x -= mouthOffset.x * strike;
-          placement.position.y -= mouthOffset.y * strike;
-          placement.position.z = (camera.position.z - lensDistance - mouthOffset.z) * strike + exit * (lensDistance + 2.5);
-          // Preserve the screen-space approach line as perspective magnifies it;
-          // otherwise an off-center head drifts toward the viewport edge first.
-          const perspective = (camera.position.z - placement.position.z - mouthOffset.z) / (camera.position.z - mouthOffset.z);
-          placement.position.x = (placement.position.x + mouthOffset.x) * perspective - mouthOffset.x;
-          placement.position.y = (placement.position.y + mouthOffset.y) * perspective - mouthOffset.y;
-        }
-        host.style.opacity = String(1 - smooth(.85, .98, p));
-        const hue = motionReduced() ? .76 : (.76 + elapsed / 6.7) % 1;
-        for (const entry of skinMaterials) {
-          entry.material.color.copy(entry.base).lerp(entry.shift.setHSL(hue, .80, .25), .48);
-          entry.material.iridescence = .55;
-        }
-        rim.color.setHSL((hue + .05) % 1, .7, .67);
-        lowerLight.intensity = 3 + opening * 2;
-        if (head) {
-          head.getWorldPosition(headWorld);
-          mouthLight.position.copy(headWorld).add(lightOffset.set(0, -.18 * fit, .65 * fit));
-          mouthLight.intensity = opening * .35;
-          head.localToWorld(mouthFocus.copy(focusLocal));
-          mouthScreen.copy(mouthFocus).project(camera);
-          host.dataset.mouthX = ((mouthScreen.x + 1) / 2).toFixed(3);
-          host.dataset.mouthY = ((1 - mouthScreen.y) / 2).toFixed(3);
-        }
-        motesMaterial.uniforms.time.value = elapsed;
-        motesMaterial.uniforms.energy.value = opening * .2 + strike * .8;
-        motesMaterial.uniforms.fade.value = 1 - exit;
-        host.dataset.phase = phaseName(p);
-        host.dataset.progress = p.toFixed(3);
-        host.dataset.jaw = jawAngle.toFixed(3);
-        host.dataset.headZ = headWorld.z.toFixed(3);
-        host.dataset.time = elapsed.toFixed(2);
-      };
-      const draw = () => { if (!disposed && !lost) renderer.render(scene, camera); };
-      const resize = () => {
-        if (disposed) return;
-        width = host.clientWidth; height = host.clientHeight;
-        if (!width || !height) return;
-        mobile = width < 641;
-        const dpr = Math.min(devicePixelRatio || 1, mobile ? 1.35 : 1.5, Math.sqrt(2400000 / (width * height)));
-        renderer.setPixelRatio(dpr); renderer.setSize(width, height, false);
-        motesMaterial.uniforms.dpr.value = dpr;
-        camera.aspect = width / height; camera.updateProjectionMatrix();
-        if (loaded) {
-          const viewHeight = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z;
-          const heightFraction = mobile ? Math.min(.44, Math.max(.28, (height - 450) / height)) : .64;
-          fit = Math.min(viewHeight * camera.aspect * (mobile ? .94 : .56) / initialSize.x, viewHeight * heightFraction / initialSize.y);
-          pose(poseProgress);
-        }
-        draw();
-      };
-      const loop = now => {
-        frame = 0;
-        if (!active()) { previous = 0; return; }
-        const nextProgress = readProgress(propsRef.current.progress);
-        const changing = Math.abs(nextProgress - poseProgress) > .0001;
-        if (previous && now - previous < (changing ? 15 : 30)) { frame = requestAnimationFrame(loop); return; }
-        const dt = previous ? Math.min((now - previous) / 1000, .05) : 1 / 30;
-        previous = now; elapsed += dt;
-        poseProgress = nextProgress;
-        pose(poseProgress); draw();
-        host.dataset.renderState = 'running';
-        frame = requestAnimationFrame(loop);
-      };
-      const refresh = () => {
-        cancelAnimationFrame(frame); frame = 0; previous = 0;
-        if (motionReduced()) { poseProgress = 0; pose(0); draw(); }
-        if (active()) frame = requestAnimationFrame(loop);
-        else host.dataset.renderState = propsRef.current.paused ? 'paused' : motionReduced() ? 'reduced' : 'hidden';
-      };
-      refreshRef.current = refresh;
-      const resizeObserver = new ResizeObserver(() => {
-        if (!resizeFrame) resizeFrame = requestAnimationFrame(() => { resizeFrame = 0; resize(); });
-      });
-      resizeObserver.observe(host);
-      const intersection = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; refresh(); }); intersection.observe(host);
-      const onLost = event => { event.preventDefault(); lost = true; cancelAnimationFrame(frame); host.dataset.ready = 'false'; host.style.opacity = '0'; propsRef.current.onReady?.(false); };
-      renderer.domElement.addEventListener('webglcontextlost', onLost);
-      document.addEventListener('visibilitychange', refresh); media.addEventListener('change', refresh);
-      cleanups.push(() => resizeObserver.disconnect(), () => intersection.disconnect(), () => document.removeEventListener('visibilitychange', refresh), () => media.removeEventListener('change', refresh), () => renderer.domElement.removeEventListener('webglcontextlost', onLost));
-      resize(); refresh();
-
-      Promise.all([
-        new GLTFLoader().loadAsync('/models/hero/serpent.glb'),
-        fetch('/models/hero/serpent-contract.json').then(response => response.ok ? response.json() : {}).catch(() => ({})),
-      ]).then(([gltf, metadata]) => {
-        if (disposed) {
-          gltf.scene.traverse(node => { node.geometry?.dispose(); if (node.material) for (const m of [].concat(node.material)) { Object.values(m).forEach(v => { if (v?.isTexture) v.dispose(); }); m.dispose(); } });
-          return;
-        }
-        contract = metadata;
-        if (contract.head?.focusLocal) focusLocal.fromArray(contract.head.focusLocal);
-        gltfRoot = gltf.scene;
-        const styledMaterials = new Set();
-        gltfRoot.traverse(node => {
-          if (!node.isMesh) return;
-          if (/^(Upper[ _]palatal[ _]tooth|Lower[ _]tooth)/i.test(node.name)) smallTeeth.push(node);
-          addResource(node.geometry);
-          if (node.morphTargetDictionary) { morphMeshes.push(node); node.frustumCulled = false; }
-          for (const material of [].concat(node.material)) {
-            addResource(material);
-            Object.values(material).forEach(value => { if (value?.isTexture) { value.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); addResource(value); } });
-            if (/skin|scale|serpent|body|head|jaw/i.test(material.name) && !/mouth|inner|gum|fang|tooth|eye|tongue/i.test(material.name)) {
-              const physical = new THREE.MeshPhysicalMaterial();
-              THREE.MeshStandardMaterial.prototype.copy.call(physical, material);
-              physical.color.multiply(new THREE.Color('#8539c6'));
-              physical.name = material.name; physical.iridescence = .55; physical.iridescenceIOR = 1.4; physical.iridescenceThicknessRange = [110, 410];
-              physical.clearcoat = .28; physical.clearcoatRoughness = .26; physical.roughness = Math.min(.42, material.roughness ?? .38); physical.envMapIntensity = .32;
-              addResource(physical);
-              if (Array.isArray(node.material)) node.material = node.material.map(value => value === material ? physical : value); else node.material = physical;
-              skinMaterials.push({ material: physical, base: physical.color.clone(), shift: new THREE.Color() });
-            } else if (material.isMeshStandardMaterial && !styledMaterials.has(material)) {
-              styledMaterials.add(material);
-              material.envMapIntensity = .45;
-              if (/throat/i.test(material.name)) {
-                material.envMapIntensity = 0; material.roughness = 1; material.clearcoat = 0;
-                material.color.multiplyScalar(.18);
-              } else if (/oral|mucosa|gum|palatal/i.test(material.name) && !/tooth|teeth/i.test(material.name)) {
-                material.envMapIntensity = .1; material.roughness = .65; material.clearcoat = .03;
-                material.color.multiply(new THREE.Color('#8f486e'));
-              }
-            }
-          }
-        });
-        head = gltfRoot.getObjectByName('HeadRig'); jaw = gltfRoot.getObjectByName('LowerJaw'); tongue = gltfRoot.getObjectByName('TongueRig');
-        if (head) {
-          const fallback = { position: head.position.clone(), quaternion: head.quaternion.clone() };
-          const source = contract.head || {};
-          poses = { rest: normalizedPose(source.rest, fallback), recoil: normalizedPose(source.recoil, fallback), strike: normalizedPose(source.strike, fallback) };
-        }
-        if (jaw) restJaw = jaw.rotation.clone();
-        if (tongue) restTongue = tongue.position.clone();
-        for (const name of ['FangL', 'FangR']) { const node = gltfRoot.getObjectByName(name); if (node) fangs.push({ node, rest: node.rotation.x }); }
-        initialBounds.setFromObject(gltfRoot, true); initialBounds.getSize(initialSize); initialBounds.getCenter(initialCenter);
-        // Centering is independent of the head pivots and body morph coordinates.
-        gltfRoot.position.sub(initialCenter); animal.add(gltfRoot);
-        loaded = true; host.dataset.ready = 'true'; host.dataset.meshes = String(morphMeshes.length);
-        poseProgress = motionReduced() ? 0 : readProgress(propsRef.current.progress);
-        resize(); pose(poseProgress); draw(); refresh(); propsRef.current.onReady?.(true);
-      }).catch(error => {
-        if (disposed) return;
-        host.dataset.ready = 'false'; host.dataset.renderState = 'fallback'; host.dataset.error = error.message;
-        propsRef.current.onReady?.(false);
-        cancelAnimationFrame(frame); frame = 0;
-      });
-    } catch {
-      host.dataset.ready = 'false'; propsRef.current.onReady?.(false); cleanup();
+const MODEL = '587aff215b4e4bd8939a1748e3ae7c42';
+const ATTACK = 'bd80eab18c8944e88d8f5b44b32ce41b';
+const clamp = (v, a=0, b=1) => Math.min(b, Math.max(a, v));
+const smooth = (a,b,v) => {const t=clamp((v-a)/(b-a));return t*t*(3-2*t);};
+const mix = (a,b,t) => a+(b-a)*t;
+const vectorMix = (a,b,t) => a.map((v,i)=>mix(v,b[i],t));
+const normalize = a => {const length=Math.hypot(...a);return a.map(v=>v/length);};
+const progressValue = value => clamp(typeof value==='number'?value:value?.get?.()||0);
+/** An artist's articulated python, streamed through the official Sketchfab API. */
+export default function SerpentEncounter({progress,paused=false,reduced=false,onReady}) {
+ const hostRef=useRef(null),frameRef=useRef(null),props=useRef({}),refreshRef=useRef(null);
+ props.current={progress,paused,reduced,onReady};
+ useEffect(()=>{refreshRef.current?.();},[paused,reduced,progress,onReady]);
+ useEffect(()=>{
+  const host=hostRef.current,iframe=frameRef.current;
+  let disposed=false,failed=false,announced=false,api=null,ready=false,visible=true,rendering=false,raf=0,loadTimeout=0;
+  let lastTick=0,lastSent=0,elapsed=0,poseProgress=0,width=1,height=1,dirty=true,pending=false,pendingSince=0;
+  let lastValues=null,lastColor=0,skin=null,sendSequence=0,missedReplies=0;
+  const media=matchMedia('(prefers-reduced-motion: reduce)');
+  const reduce=()=>props.current.reduced||media.matches;
+  const active=()=>ready&&visible&&!document.hidden&&!props.current.paused&&!reduce();
+  const restCenter=[17.05594,-10.37537,16.75926];
+  const restDirection=normalize([59.79671,-56.22291,95.73166]);
+  const mouthCenter=[30,-4,42];
+  const mouthDirection=normalize([.45,-.82,.35]);
+  const requestTick=()=>{if(!disposed&&ready&&!raf&&rendering)raf=requestAnimationFrame(tick);};
+  const fail=()=>{
+   if(disposed||failed)return;failed=true;ready=false;rendering=false;
+   clearTimeout(loadTimeout);cancelAnimationFrame(raf);raf=0;api?.stop();
+   host.dataset.ready='false';host.dataset.renderState='fallback';host.style.opacity='0';props.current.onReady?.(false);
+  };
+  const pose = p => {
+   const preparing=smooth(.30,.60,p),approach=smooth(.62,.87,p),fading=smooth(.90,.99,p);
+   // The real rig opens its jaw and raises the neck. Hold its maximum gape as
+   // the camera passes the mouth, rather than seeking into its recovery pose.
+   const clipTime=mix(.15,1.50,preparing);
+   const mobile=width<641,aspect=width/Math.max(1,height);
+   const initialDistance=mobile?Math.max(300,212/aspect):267;
+   const distance=mix(mix(initialDistance,180,smooth(.30,.60,p)),mobile?40:34,approach);
+   const direction=normalize(vectorMix(restDirection,mouthDirection,approach));
+   const target=vectorMix(restCenter,mouthCenter,approach);
+   const right=normalize([-direction[1],direction[0],0]);
+   const centerX=mix(mobile?.5:.70,.5,smooth(.22,.50,p));
+   const viewWidth=distance*Math.tan(32*Math.PI/360)*2*aspect;
+   target.forEach((v,i)=>target[i]=v-right[i]*(centerX-.5)*viewWidth);
+   const position=target.map((v,i)=>v+direction[i]*distance);
+   host.style.opacity=String(1-fading);
+   host.dataset.progress=p.toFixed(3);host.dataset.clipTime=clipTime.toFixed(3);
+   host.dataset.phase=p<.30?'rest':p<.60?'opening':p<.87?'strike':'pass';
+   host.dataset.distance=distance.toFixed(2);host.dataset.time=elapsed.toFixed(2);
+   return {clipTime,position,target};
+  };
+  const sendPose = now => {
+   if(!api||!ready||!rendering)return;
+   if(pending){
+    if(now-pendingSince<1200)return;
+    pending=false;dirty=true;if(++missedReplies>=3){fail();return;}
+   }
+   if(now-lastSent<1000/30)return;
+   const next=pose(poseProgress),values=[next.clipTime,...next.position,...next.target];
+   if(!dirty&&lastValues&&values.every((v,i)=>Math.abs(v-lastValues[i])<.00003))return;
+   dirty=false;lastValues=values;pending=true;pendingSince=now;lastSent=now;
+   const sequence=++sendSequence;
+   const done=()=>{
+    if(disposed||failed||sequence!==sendSequence)return;pending=false;missedReplies=0;
+    if(!announced){announced=true;clearTimeout(loadTimeout);host.dataset.ready='true';props.current.onReady?.(true);}
+    if(dirty)requestTick();
+   };
+   api.seekTo(next.clipTime,error=>{
+    if(disposed||failed||sequence!==sendSequence)return;
+    if(error){fail();return;}
+    requestAnimationFrame(()=>{
+     if(!disposed&&!failed&&sequence===sendSequence)api.setCameraLookAt(next.position,next.target,0,done);
+    });
+   });
+  };
+  const refresh = () => {
+   if(!ready)return;
+   const shouldRender=visible&&!document.hidden;
+   if(shouldRender&&!rendering){api.start();rendering=true;dirty=true;lastTick=0;}
+   if(!shouldRender&&rendering){api.stop();rendering=false;cancelAnimationFrame(raf);raf=0;}
+   api.pause(()=>{});
+   if(reduce()){poseProgress=0;dirty=true;}
+   host.dataset.renderState=!shouldRender?'hidden':props.current.paused?'paused':reduce()?'reduced':'running';
+   requestTick();
+  };
+  refreshRef.current=refresh;
+  function tick(now){
+   raf=0;if(disposed||!ready||!rendering)return;
+   const dt=lastTick?Math.min(.05,(now-lastTick)/1000):0;lastTick=now;
+   if(active()){
+    elapsed+=dt;const next=progressValue(props.current.progress);
+    if(Math.abs(next-poseProgress)>.00001){poseProgress=next;dirty=true;}
+   }
+   sendPose(now);
+   // Only colour changes in idle; native animation time remains owned by scroll.
+   if(active()&&skin&&now-lastColor>500){
+    lastColor=now;const wave=(Math.sin(elapsed*.24)+1)*.5;
+    skin.channels.DiffusePBR.color=[mix(.14,.21,wave),mix(.045,.075,wave),mix(.29,.36,wave)];
+    api.setMaterial(skin,()=>{});
+   }
+   if(active()||dirty||pending)requestTick();
+  }
+  const resize = () => {width=host.clientWidth;height=host.clientHeight;dirty=true;requestTick();};
+  const observer=new IntersectionObserver(([entry])=>{visible=entry.isIntersecting;refresh();});observer.observe(host);
+  const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(host);resize();
+  document.addEventListener('visibilitychange',refresh);media.addEventListener('change',refresh);
+  loadTimeout=setTimeout(fail,45000);
+  const receive = async event => {
+   if(disposed||failed||event.origin!==location.origin||event.source!==iframe.contentWindow||event.data?.source!=='orbit-serpent')return;
+   if(event.data.type==='error'){fail();return;}
+   if(event.data.type!=='ready'||api)return;
+   try{
+    // Keep the proven SDK initialization isolated from React's mount lifecycle.
+    // Only take control after all model metadata is available in the wrapper.
+    const child=iframe.contentWindow;api=child.api;rendering=true;
+    const invoke=(method,...args)=>new Promise((resolve,reject)=>api[method](...args,(error,value)=>error?reject(error):resolve(value)));
+    if(!child.report.animations.some(clip=>clip[0]===ATTACK))throw new Error('Attack animation unavailable');
+    await invoke('setCurrentAnimationByUID',ATTACK);host.dataset.clipSelected=ATTACK;
+    await invoke('pause');
+    const camera=child.report.camera;
+    await invoke('setCameraLookAt',camera.position.map((v,i)=>camera.target[i]+(v-camera.target[i])*1.3),camera.target,0);
+    await invoke('seekTo',0);
+    if(disposed||failed)return;
+    skin=structuredClone(child.report.materials.find(m=>m.name==='ballpython_skin'));
+    if(skin){
+     delete skin.channels.DiffusePBR.texture;skin.channels.DiffusePBR.color=[.17,.055,.33];skin.channels.DiffusePBR.factor=1;
+     delete skin.channels.SpecularPBR.texture;skin.channels.SpecularPBR.color=[.78,.62,.96];skin.channels.SpecularPBR.factor=.18;
+     skin.channels.GlossinessPBR.factor=.72;skin.channels.BumpMap.factor=.8;
+     skin.channels.ClearCoat.enable=true;skin.channels.ClearCoat.factor=.22;skin.channels.ClearCoatRoughness.factor=.25;
+     await invoke('setMaterial',skin);
     }
-    return cleanup;
-  }, []);
-
-  return <div ref={hostRef} className="serpent-webgl-encounter" data-ready="false" data-phase="curious" aria-hidden="true" />;
+    await invoke('setEnvironment',{shadowEnabled:false}).catch(()=>{});
+    await invoke('setFov',32).catch(()=>{});
+    if(disposed||failed)return;
+    host.__viewerApi=import.meta.env.DEV?api:undefined;ready=true;host.dataset.model=MODEL;
+    poseProgress=reduce()?0:progressValue(props.current.progress);dirty=true;refresh();
+    sendPose(performance.now());
+   }catch{fail();}
+  };
+  window.addEventListener('message',receive);
+  iframe.src='/serpent-viewer.html';
+  return()=>{
+   disposed=true;clearTimeout(loadTimeout);cancelAnimationFrame(raf);observer.disconnect();resizeObserver.disconnect();
+   document.removeEventListener('visibilitychange',refresh);media.removeEventListener('change',refresh);window.removeEventListener('message',receive);refreshRef.current=null;
+   api?.stop();delete host.__viewerApi;iframe.src='about:blank';
+  };
+ },[]);
+ return <div className="serpent-webgl-encounter serpent-official-encounter" ref={hostRef} data-ready="false" data-phase="rest" aria-hidden="true"><iframe ref={frameRef} title="Blackhead Ball Python — Nestaeric" allow="autoplay; fullscreen; xr-spatial-tracking" tabIndex={-1}/></div>;
 }

@@ -1,27 +1,28 @@
-# 表紙の3Dヘビ
+# 表紙の蛇とスクロール演出
 
-表紙はオリジナルの立体モデルをThree.jsで描画しています。スクロール位置に応じて「浮遊 → 身を引く → 開口 → カメラへ突進 → 通過」が連続し、上に戻すと同じ動きを逆向きに再生します。
+最初の表紙は `public/images/celestial-serpent.webp` の画像です。スクロールすると作者制作の3Dパイソンに切り替わり、開口と接近を再生します。画像と3Dは別素材で、表紙の画像から3Dモデルを生成しているわけではありません。
 
-## Blenderで編集する
+## 3Dモデル
 
-`art/hero-serpent.blend` をBlenderで開きます。タイムラインは1〜121フレーム（30fps）。顎・牙の開閉と胴体の変形を確認できるプレビューアニメーションが入っています。Web上のカメラへの移動、色の反射、スクロール同期は `src/SerpentEncounter.jsx` が制御します。
+- モデル：[Blackhead Ball Python](https://sketchfab.com/models/587aff215b4e4bd8939a1748e3ae7c42)
+- 作者：[Nestaeric](https://sketchfab.com/Nestaeric)
+- モデルUID：`587aff215b4e4bd8939a1748e3ae7c42`
+- 攻撃クリップ：`snake|attack_A`（6秒）
+- クリップUID：`bd80eab18c8944e88d8f5b44b32ce41b`
 
-再生成はプロジェクトルートで実行します。既存のGLB、設定JSON、Blenderファイルを上書きするため、手動で編集した `.blend` は別名で保存してください。
+Sketchfabの公式埋め込みとViewer APIを使用します。元モデルやテクスチャを抽出・再配布せず、作者が配信するモデルを表示します。読込には外部サービスへの接続が必要です。
 
-```sh
-blender --background --factory-startup --python scripts/blender/create_hero_serpent.py
-```
+体表の拡散色を薄紫へ変更し、鱗のバンプと光沢マップを維持しています。目と口内の材質は保持します。顎の動きは作者の骨格アニメーションで、スクロール位置から `seekTo` で時刻を指定します。カメラの実際の位置・注視点も変化させます。
 
-制作時はBlender 5.2.3 LTSを使用。スクリプトは独立したバックグラウンドプロセスで実行し、開いているBlenderのセッションには接続しません。
+## 実装
 
-## Webとの接続
+- `src/App.jsx` — 元画像と3Dのクロスフェード、コピーのフェード。
+- `public/serpent-viewer.html` — 公式SDKを独立した文書で初期化し、リグとアニメーションを読み込む。
+- `src/SerpentEncounter.jsx` — 同一オリジンのビューと接続し、材質、攻撃クリップ、カメラ、停止を制御。
+- `src/serpent-hero-stage.css` — 表紙画像と小さい画面のレイアウト。
 
-- `public/models/hero/serpent.glb` — 鱗、口内、顎、牙、舌、胴体の形状とプレビューアニメーション。
-- `public/models/hero/serpent-contract.json` — 各ノード名、姿勢、顎の最大角度、変形名。
-- `src/SerpentEncounter.jsx` — `HeadRig` / `LowerJaw` / `FangL` / `FangR` と `recoil` / `strike` / `gapeHalf` / `gape` を制御。
+スクロールを戻すと同じ時刻へ戻ります。停止操作では姿勢を固定し、画面外・非表示タブでは描画を休止します。OSで動きを減らす設定が有効な場合とモデルが読み込めない場合は、元画像を表示します。
 
-Blenderで編集する場合、これらの名前と親子関係を維持してください。glTFではYが上、Zがカメラへ向かう方向です。口の中心をレンズへ向けることで、胴体全体の単純な拡大ではなく実際の奥行き移動として突進させています。
+## 旧Blender試作
 
-描画は画面外・非表示タブで休止し、画素密度に上限を設けています。エフェクト停止時は現在の姿勢を保ち、OSの動きを減らす設定では静止姿勢を表示します。WebGLが使えない場合は画像を表示します。
-
-モデル、形状、材質はこのサイトのために生成したオリジナルです。外部のモデルファイルや画像平面は使用していません。
+`art/hero-serpent.blend`、`scripts/blender/create_hero_serpent.py`、`public/models/hero/` は旧試作の資料です。現在の表紙アニメーションでは使っていません。現在使用する作者のモデルをBlenderで編集する場合は、作者から編集可能なモデルファイルと利用権を取得する必要があります。
