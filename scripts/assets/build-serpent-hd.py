@@ -9,13 +9,15 @@ root=Path(__file__).resolve().parents[2]
 out=root/'public/images/serpent-hd';out.mkdir(exist_ok=True)
 frames=[]
 for batch in range(3):
- sheet=Image.open(root/f'docs/assets/serpent-hd-sheet-{batch}.png').convert('RGB')
+ source=root/('docs/assets/serpent-fullbody-sheet.png' if batch==0 else f'docs/assets/serpent-hd-sheet-{batch}.png')
+ sheet=Image.open(source).convert('RGBA')
  w,h=sheet.width//2,sheet.height//2
  for j in range(4):
   # Uniform quadrant extraction; no upscaling or numbered headers.
   im=sheet.crop(((j%2)*w,(j//2)*h,(j%2+1)*w,(j//2+1)*h))
   im.save(out/f'pose-{len(frames):02d}.webp',quality=96,method=6)
-  frames.append(np.asarray(im))
+  rgba=np.asarray(im).astype(np.float32)
+  frames.append((rgba[:,:,:3]*(rgba[:,:,3:4]/255)).astype(np.uint8))
 flow=cv2.DISOpticalFlow_create(cv2.DISOPTICAL_FLOW_PRESET_MEDIUM)
 flow.setFinestScale(0);flow.setGradientDescentIterations(60);flow.setVariationalRefinementIterations(15)
 size=512
@@ -34,5 +36,5 @@ for i in range(11):
  field(frames[i],frames[i+1]).save(out/f'forward-{i:02d}.png')
  field(frames[i+1],frames[i]).save(out/f'backward-{i:02d}.png')
  print(f'Flow pair {i+1}/11',flush=True)
-(out/'manifest.json').write_text(json.dumps({'count':12,'width':w,'height':h,'flowSize':256,'encoding':'RGBA: x16 high/low, y16 high/low; UV offset = uint16/65535 - .5','source':'AI-restored keyframes based on the supplied storyboard and original serpent','interpolation':'continuous bidirectional optical-flow warping'},indent=2))
+(out/'manifest.json').write_text(json.dumps({'count':12,'width':w,'height':h,'flowSize':256,'encoding':'RGBA: x16 high/low, y16 high/low; UV offset = uint16/65535 - .5','fullBodyAlphaPoses':[0,1,2,3],'source':'AI-restored keyframes based on the supplied storyboard and original serpent','interpolation':'continuous bidirectional optical-flow warping'},indent=2))
 print(w,h,sum(p.stat().st_size for p in out.iterdir()))

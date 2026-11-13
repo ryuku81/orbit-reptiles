@@ -5,7 +5,7 @@ void main(){ uv=vec2((position.x+1.)*.5,(1.-position.y)*.5); gl_Position=vec4(po
 const fragmentSource = `precision highp float;
 varying vec2 uv;
 uniform sampler2D poseA,poseB,flowA,flowB;
-uniform float progress;
+uniform float progress,edgeStrength;
 vec2 decode(vec4 p){return vec2(p.r*65280.+p.g*255.,p.b*65280.+p.a*255.)/65535.-.5;}
 void main(){
  float t=progress;
@@ -15,13 +15,15 @@ void main(){
   a=uv-t*decode(texture2D(flowA,clamp(a,0.,1.)));
   b=uv-(1.-t)*decode(texture2D(flowB,clamp(b,0.,1.)));
  }
- vec3 ca=texture2D(poseA,clamp(a,0.,1.)).rgb;
- vec3 cb=texture2D(poseB,clamp(b,0.,1.)).rgb;
- vec3 color=mix(ca,cb,smoothstep(0.,1.,t));
+ vec4 ca=texture2D(poseA,clamp(a,0.,1.));
+ vec4 cb=texture2D(poseB,clamp(b,0.,1.));
+ // Pose textures are premultiplied before filtering, avoiding bright cutout fringes.
+ vec4 blended=mix(ca,cb,smoothstep(0.,1.,t));
+ vec3 color=blended.rgb/max(blended.a,.0001);
  // Broad, rounded falloff removes the image rectangle while the central face stays opaque.
  vec2 d=abs(uv-.5)*2.;
  float radius=pow(pow(d.x,4.)+pow(d.y,4.),.25);
- float alpha=1.-smoothstep(.62,1.,radius);
+ float alpha=blended.a*mix(1.,1.-smoothstep(.62,1.,radius),edgeStrength);
  gl_FragColor=vec4(color,alpha);
 }`;
 
@@ -41,16 +43,16 @@ export async function createSerpentRenderer(canvas, signal) {
   const tasks=[];const poses=[],forward=[],backward=[];
   for(let i=0;i<12;i++)tasks.push({name:`pose-${String(i).padStart(2,'0')}.webp`,target:poses,index:i});
   for(let i=0;i<11;i++)for(const [name,target] of [['forward',forward],['backward',backward]])tasks.push({name:`${name}-${String(i).padStart(2,'0')}.png`,target,index:i});
-  async function worker(){while(tasks.length){signal.throwIfAborted();if(destroyed)throw Error('Renderer disposed');const task=tasks.shift();const response=await fetch(`${ROOT}/${task.name}`,{signal});if(!response.ok)throw Error(`Missing ${task.name}`);const bitmap=await createImageBitmap(await response.blob(),{premultiplyAlpha:'none',colorSpaceConversion:'none'});if(signal.aborted||destroyed){bitmap.close();throw Error('Renderer disposed');}
+  async function worker(){while(tasks.length){signal.throwIfAborted();if(destroyed)throw Error('Renderer disposed');const task=tasks.shift();const response=await fetch(`${ROOT}/${task.name}`,{signal});if(!response.ok)throw Error(`Missing ${task.name}`);const bitmap=await createImageBitmap(await response.blob(),{premultiplyAlpha:task.name.startsWith('pose-')?'premultiply':'none',colorSpaceConversion:'none'});if(signal.aborted||destroyed){bitmap.close();throw Error('Renderer disposed');}
    const texture=gl.createTexture();textures.push(texture);gl.bindTexture(gl.TEXTURE_2D,texture);
    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,bitmap);bitmap.close();task.target[task.index]=texture;
   }}
   await Promise.all(Array.from({length:4},worker));signal.throwIfAborted();
-  const slots=['poseA','poseB','flowA','flowB'].map(n=>gl.getUniformLocation(program,n));const progress=gl.getUniformLocation(program,'progress');
+  const slots=['poseA','poseB','flowA','flowB'].map(n=>gl.getUniformLocation(program,n));const progress=gl.getUniformLocation(program,'progress');const edgeStrength=gl.getUniformLocation(program,'edgeStrength');
   return {draw(position){if(destroyed||gl.isContextLost())return;const pair=Math.min(10,Math.floor(position)),t=Math.max(0,Math.min(1,position-pair));gl.viewport(0,0,canvas.width,canvas.height);gl.useProgram(program);
    [poses[pair],poses[pair+1],forward[pair],backward[pair]].forEach((texture,i)=>{gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(slots[i],i);});
-   gl.uniform1f(progress,t);gl.drawArrays(gl.TRIANGLES,0,6);
+   gl.uniform1f(progress,t);gl.uniform1f(edgeStrength,Math.max(0,Math.min(1,position-3)));gl.drawArrays(gl.TRIANGLES,0,6);
   },destroy};
  }catch(error){destroy();throw error;}
 }
