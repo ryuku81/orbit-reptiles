@@ -1,20 +1,22 @@
 import { useEffect, useRef } from 'react';
-import { SEQUENCE, sequencePosition, frameRect } from './serpent-sequence.js';
+import { SEQUENCE, sequencePosition } from './serpent-sequence.js';
+
+import { createSerpentRenderer } from './serpent-hd-renderer.js';
 
 const valueOf = p => typeof p === 'number' ? p : p?.get?.() ?? 0;
 
-/** Scrub the user's actual contact-sheet artwork. This is an image sequence, not a 3D replacement. */
+/** Continuously warp restored high-resolution key poses with bidirectional motion fields. */
 export default function SerpentPortrait({ progress, paused = false, reduced = false, onReady, className = '' }) {
   const host = useRef(null), state = useRef({}), refresh = useRef(null);
   state.current = { progress, paused, reduced, onReady };
   useEffect(() => { refresh.current?.(); }, [paused, reduced, onReady]);
   useEffect(() => {
     const element = host.current, canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d', { alpha: true });
-    if (!context) { state.current.onReady?.(false); return; }
+    const abort = new AbortController();
+    let renderer = null;
     canvas.setAttribute('aria-hidden', 'true');
     element.appendChild(canvas);
-    const media = matchMedia('(prefers-reduced-motion: reduce)'), atlas = new Image();
+    const media = matchMedia('(prefers-reduced-motion: reduce)');
     let disposed = false, loaded = false, raf = 0, visible = true, position = 0, draws = 0;
     let lastPosition = -1, dirty = true;
     const isReduced = () => state.current.reduced || media.matches;
@@ -28,15 +30,14 @@ export default function SerpentPortrait({ progress, paused = false, reduced = fa
       else if (!state.current.paused) position = sequencePosition(valueOf(state.current.progress));
       if (!dirty && Math.abs(position - lastPosition) < .001) return;
       const index = Math.round(position);
-      // Each atlas cell is a motion-compensated pose, not a crossfade of two faces.
-      context.clearRect(0, 0, canvas.width, canvas.height);
-      context.imageSmoothingEnabled = true; context.imageSmoothingQuality = 'high';
-      context.drawImage(atlas, ...frameRect(index), 0, 0, canvas.width, canvas.height);
+      renderer.draw(position);
       lastPosition = position; dirty = false;
       element.dataset.frame = String(index + 1);
+      element.dataset.position = position.toFixed(6);
+      element.dataset.renderer = 'optical-flow-webgl';
       element.dataset.progress = (position / (SEQUENCE.count - 1)).toFixed(4);
       element.dataset.draws = String(++draws);
-      element.dataset.phase = index < 100 ? 'coiling' : index < 180 ? 'opening' : 'strike';
+      element.dataset.phase = position < 4 ? 'coiling' : position < 8 ? 'opening' : 'strike';
       element.dataset.renderState = isReduced() ? 'reduced' : state.current.paused ? 'paused' : 'running';
       if (element.dataset.ready !== 'true') {
         element.dataset.ready = 'true'; state.current.onReady?.(true);
@@ -53,7 +54,7 @@ export default function SerpentPortrait({ progress, paused = false, reduced = fa
     });
     observer.observe(element);
     const resize = new ResizeObserver(() => {
-      const ratio = Math.min(devicePixelRatio || 1, 2);
+      const ratio = Math.min(devicePixelRatio || 1, 1.5);
       canvas.width = Math.max(1, Math.round(element.clientWidth * ratio));
       canvas.height = Math.max(1, Math.round(element.clientHeight * ratio));
       wake();
@@ -64,15 +65,18 @@ export default function SerpentPortrait({ progress, paused = false, reduced = fa
       else wake();
     };
     document.addEventListener('visibilitychange', visibility); media.addEventListener('change', wake);
-    atlas.onload = () => { if (!disposed) { loaded = true; wake(); } };
-    atlas.onerror = () => {
-      if (!disposed) { element.dataset.ready = 'false'; element.dataset.renderState = 'fallback'; state.current.onReady?.(false); }
+    const fallback = () => {
+      if (!disposed) { loaded = false; element.dataset.ready = 'false'; element.dataset.renderState = 'fallback'; state.current.onReady?.(false); }
     };
-    atlas.src = '/images/serpent-sequence/flow-atlas.webp';
+    canvas.addEventListener('webglcontextlost', fallback);
+    createSerpentRenderer(canvas, abort.signal).then(result => {
+      if (disposed) { result.destroy(); return; }
+      renderer = result; loaded = true; wake();
+    }).catch(fallback);
     return () => {
       disposed = true; cancelAnimationFrame(raf); unsubscribe?.(); resize.disconnect(); observer.disconnect();
       document.removeEventListener('visibilitychange', visibility); media.removeEventListener('change', wake);
-      atlas.onload = null; atlas.onerror = null; canvas.remove(); refresh.current = null;
+      abort.abort(); renderer?.destroy(); canvas.removeEventListener('webglcontextlost', fallback); canvas.remove(); refresh.current = null;
     };
   }, [progress]);
   return <div ref={host} className={`serpent-portrait-renderer ${className}`} data-ready="false" data-sequence-length={SEQUENCE.count} aria-hidden="true" />;

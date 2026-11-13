@@ -1,0 +1,9 @@
+{
+  "count": 12,
+  "width": 627,
+  "height": 627,
+  "flowSize": 256,
+  "encoding": "RGBA: x16 high/low, y16 high/low; UV offset = uint16/65535 - .5",
+  "source": "AI-restored keyframes based on the supplied storyboard and original serpent",
+  "interpolation": "continuous bidirectional optical-flow warping"
+}
