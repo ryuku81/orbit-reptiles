@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { SEQUENCE, sequencePosition, frameRect, bodyWave } from './serpent-sequence.js';
+import { SEQUENCE, sequencePosition, frameRect } from './serpent-sequence.js';
 
 const valueOf = p => typeof p === 'number' ? p : p?.get?.() ?? 0;
 
@@ -12,10 +12,6 @@ export default function SerpentPortrait({ progress, paused = false, reduced = fa
     const element = host.current, canvas = document.createElement('canvas');
     const context = canvas.getContext('2d', { alpha: true });
     if (!context) { state.current.onReady?.(false); return; }
-    const blended = document.createElement('canvas'), warped = document.createElement('canvas');
-    blended.width = warped.width = SEQUENCE.width; blended.height = warped.height = SEQUENCE.height;
-    const blendContext = blended.getContext('2d'), warpContext = warped.getContext('2d');
-    if (!blendContext || !warpContext) { state.current.onReady?.(false); return; }
     canvas.setAttribute('aria-hidden', 'true');
     element.appendChild(canvas);
     const media = matchMedia('(prefers-reduced-motion: reduce)'), atlas = new Image();
@@ -31,35 +27,16 @@ export default function SerpentPortrait({ progress, paused = false, reduced = fa
       if (isReduced()) position = 0;
       else if (!state.current.paused) position = sequencePosition(valueOf(state.current.progress));
       if (!dirty && Math.abs(position - lastPosition) < .001) return;
-      const lower = Math.floor(position), upper = Math.min(lower + 1, SEQUENCE.count - 1), mix = position - lower;
-      const p = position / (SEQUENCE.count - 1);
-      blendContext.clearRect(0, 0, SEQUENCE.width, SEQUENCE.height);
-      blendContext.globalCompositeOperation = 'source-over';
-      blendContext.globalAlpha = 1 - mix;
-      blendContext.drawImage(atlas, ...frameRect(lower), 0, 0, SEQUENCE.width, SEQUENCE.height);
-      if (mix > 0) {
-        blendContext.globalCompositeOperation = 'lighter';
-        blendContext.globalAlpha = mix;
-        blendContext.drawImage(atlas, ...frameRect(upper), 0, 0, SEQUENCE.width, SEQUENCE.height);
-      }
-      blendContext.globalAlpha = 1;
-      blendContext.globalCompositeOperation = 'source-over';
-      warpContext.clearRect(0, 0, SEQUENCE.width, SEQUENCE.height);
-      // Work at native resolution. Reserved padding exceeds the maximum displacement;
-      // forehead, eyes, and the final close-up remain rigid and fully visible.
-      for (let y = 0; y < SEQUENCE.height; y++) {
-        const dx = isReduced() ? 0 : bodyWave(y / SEQUENCE.height, p);
-        warpContext.drawImage(blended, 0, y, SEQUENCE.width, 1, dx, y, SEQUENCE.width, 1);
-      }
+      const index = Math.round(position);
+      // Each atlas cell is a motion-compensated pose, not a crossfade of two faces.
       context.clearRect(0, 0, canvas.width, canvas.height);
       context.imageSmoothingEnabled = true; context.imageSmoothingQuality = 'high';
-      context.drawImage(warped, 0, 0, canvas.width, canvas.height);
+      context.drawImage(atlas, ...frameRect(index), 0, 0, canvas.width, canvas.height);
       lastPosition = position; dirty = false;
-      element.dataset.frame = String(lower + 1);
-      element.dataset.blend = mix.toFixed(3);
+      element.dataset.frame = String(index + 1);
       element.dataset.progress = (position / (SEQUENCE.count - 1)).toFixed(4);
       element.dataset.draws = String(++draws);
-      element.dataset.phase = lower < 6 ? 'coiling' : lower < 11 ? 'opening' : 'strike';
+      element.dataset.phase = index < 100 ? 'coiling' : index < 180 ? 'opening' : 'strike';
       element.dataset.renderState = isReduced() ? 'reduced' : state.current.paused ? 'paused' : 'running';
       if (element.dataset.ready !== 'true') {
         element.dataset.ready = 'true'; state.current.onReady?.(true);
@@ -91,7 +68,7 @@ export default function SerpentPortrait({ progress, paused = false, reduced = fa
     atlas.onerror = () => {
       if (!disposed) { element.dataset.ready = 'false'; element.dataset.renderState = 'fallback'; state.current.onReady?.(false); }
     };
-    atlas.src = '/images/serpent-sequence/undulation-atlas.webp';
+    atlas.src = '/images/serpent-sequence/flow-atlas.webp';
     return () => {
       disposed = true; cancelAnimationFrame(raf); unsubscribe?.(); resize.disconnect(); observer.disconnect();
       document.removeEventListener('visibilitychange', visibility); media.removeEventListener('change', wake);
