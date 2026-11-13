@@ -37,7 +37,7 @@ export default function SerpentPortrait({ progress, paused = false, reduced = fa
       element.dataset.renderer = 'optical-flow-webgl';
       element.dataset.progress = (position / (SEQUENCE.count - 1)).toFixed(4);
       element.dataset.draws = String(++draws);
-      element.dataset.phase = position < 4 ? 'coiling' : position < 8 ? 'opening' : 'strike';
+      element.dataset.phase = position < 10 ? 'coiling' : position < 20 ? 'opening' : 'strike';
       element.dataset.renderState = isReduced() ? 'reduced' : state.current.paused ? 'paused' : 'running';
       if (element.dataset.ready !== 'true') {
         element.dataset.ready = 'true'; state.current.onReady?.(true);

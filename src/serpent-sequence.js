@@ -1,4 +1,4 @@
-export const SEQUENCE = Object.freeze({ count: 12, width: 627, height: 627 });
+export const SEQUENCE = Object.freeze({ count: 28, width: 512, height: 768 });
 export function sequencePosition(progress) {
  const value=Number.isFinite(progress)?progress:0;
  const t=Math.max(0,Math.min(1,(value-.025)/.875));
