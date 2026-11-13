@@ -14,6 +14,7 @@ export default function SerpentPortrait({ progress, paused = false, reduced = fa
     const element = host.current, media = matchMedia('(prefers-reduced-motion: reduce)');
     let renderer, disposed = false, failed = false, loaded = false, visible = true, raf = 0;
     let renderedProgress = 0, announced = false, dirty = true;
+    let elapsed = 0, lastClock = 0, lastRender = 0, frameCount = 0, wasActive = false;
     const fail = () => {
       if (disposed || failed) return;
       failed = true; cancelAnimationFrame(raf); raf = 0;
@@ -30,7 +31,10 @@ export default function SerpentPortrait({ progress, paused = false, reduced = fa
     renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;opacity:0';
     element.appendChild(renderer.domElement);
 
-    const uniforms = { artwork: { value: null }, strikeArtwork: { value: null }, opening: { value: 0 } };
+    const uniforms = {
+      artwork: { value: null }, strikeArtwork: { value: null }, opening: { value: 0 },
+      time: { value: 0 }, vitality: { value: 1 },
+    };
     const material = new THREE.ShaderMaterial({
       uniforms, vertexShader: serpentPortraitVertex, fragmentShader: serpentPortraitFragment,
       depthTest: false, depthWrite: false, side: THREE.DoubleSide, transparent: true, premultipliedAlpha: true,
@@ -39,27 +43,52 @@ export default function SerpentPortrait({ progress, paused = false, reduced = fa
     scene.add(new THREE.Mesh(geometry, material));
     const isReduced = () => state.current.reduced || media.matches;
     const isVisible = () => visible && !document.hidden;
+    const isActive = () => isVisible() && !state.current.paused && !isReduced();
     const request = () => {
       if (!disposed && !failed && loaded && isVisible() && !raf) raf = requestAnimationFrame(draw);
     };
-    function draw() {
+    function draw(now) {
       raf = 0;
-      if (disposed || failed || !loaded || !isVisible() || !dirty) return;
+      if (disposed || failed || !loaded || !isVisible()) return;
+      const active = isActive();
+      if (!active) lastClock = 0;
+      if (!dirty && !active) return;
+      // Idle movement renders at 30fps; scroll changes can render at 60fps so
+      // the jaw follows the stage without overworking high-refresh displays.
+      if (active && now - lastRender < 1000 / (dirty ? 60 : 30) - 1) { request(); return; }
+      if (active) {
+        if (lastClock) elapsed += Math.min(.05, Math.max(0, (now - lastClock) / 1000));
+        lastClock = now;
+      }
       if (isReduced()) renderedProgress = 0;
       else if (!state.current.paused) renderedProgress = valueOf(state.current.progress);
       const opening = THREE.MathUtils.smoothstep(renderedProgress, .16, .52);
       uniforms.opening.value = opening;
+      uniforms.time.value = isReduced() ? 0 : elapsed;
+      uniforms.vitality.value = isReduced() ? 0 : 1;
       renderer.render(scene, camera);
+      lastRender = now; frameCount++;
       element.dataset.ready = 'true'; element.dataset.progress = renderedProgress.toFixed(4);
       element.dataset.jawOpen = opening.toFixed(4);
+      element.dataset.livingTime = uniforms.time.value.toFixed(3);
+      element.dataset.frame = String(frameCount);
+      element.dataset.vitality = String(uniforms.vitality.value);
       element.dataset.phase = opening === 0 ? 'rest' : opening < 1 ? 'opening' : 'strike';
       element.dataset.renderState = isReduced() ? 'reduced' : state.current.paused ? 'paused' : 'running';
       renderer.domElement.style.opacity = '1'; dirty = false;
       if (!announced) { announced = true; state.current.onReady?.(true); }
+      if (active) request();
     }
-    const wake = () => { dirty = true; request(); };
+    const wake = () => {
+      const active = isActive();
+      if (active !== wasActive) lastClock = 0;
+      wasActive = active; dirty = true; request();
+    };
     const visibility = () => {
-      if (!isVisible()) { cancelAnimationFrame(raf); raf = 0; element.dataset.renderState = 'hidden'; }
+      if (!isVisible()) {
+        cancelAnimationFrame(raf); raf = 0; lastClock = 0; wasActive = false;
+        element.dataset.renderState = 'hidden';
+      }
       else wake();
     };
     refresh.current = wake;
