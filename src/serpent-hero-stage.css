@@ -1,19 +1,19 @@
-/* A single illustrated serpent: feathered into space, then aimed at its mouth. */
+/* The supplied storyboard already contains the approach: do not zoom it a second time. */
 .serpent-3d-stage .serpent-reference-art{opacity:1;transition:none;mix-blend-mode:normal}
-.serpent-art-frame{position:absolute;top:48%;width:min(82vw,120svh);right:-3%;aspect-ratio:3/2;translate:0 -50%;transform-origin:28% 31%;will-change:transform}
-.serpent-3d-stage .serpent-art-frame>img{position:absolute;inset:0;width:100%;height:100%;translate:none;object-fit:contain;mask-image:linear-gradient(180deg,transparent,#000 12%,#000 88%,transparent),linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);mask-composite:intersect;opacity:1;transition:opacity .25s}
+.serpent-art-frame{position:absolute;top:50%;height:92%;width:auto;right:7%;aspect-ratio:100/128;translate:0 -50%;isolation:isolate}
+.serpent-3d-stage .serpent-art-frame>img{position:absolute;inset:0;width:100%;height:100%;translate:none;object-fit:fill;opacity:1;transition:opacity .2s;mask-image:linear-gradient(180deg,transparent,#000 13%,#000 87%,transparent),linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-composite:intersect}
 .serpent-art-frame.is-portrait-ready>img{opacity:0}
-.serpent-portrait{position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity .25s}
+.serpent-portrait{position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity .2s;mask-image:linear-gradient(180deg,transparent,#000 13%,#000 87%,transparent),linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-composite:intersect}
 .serpent-portrait[data-ready=true]{opacity:1}
 .serpent-portrait canvas{display:block;width:100%;height:100%}
 @media(max-width:640px){
- .serpent-art-frame{width:132%;right:-17%;top:46%}
+ .serpent-art-frame{height:min(76%,116vw);width:auto;right:50%;top:52%;translate:50% -50%}
 }
 @media(max-width:640px) and (max-height:740px){
- .serpent-art-frame{width:min(132%,calc((100svh - 370px)*1.5));right:calc((100% - min(132%,calc((100svh - 370px)*1.5)))/2);top:47%}
+ .serpent-art-frame{height:min(72%,106vw);top:51%}
  .serpent-3d-stage .hero-content{padding-top:16px}
  .serpent-3d-stage .hero-japanese{display:none}
  .serpent-3d-stage .hero-ctas{bottom:82px}
  .serpent-3d-stage .voyage-invitation{bottom:48px;font-size:7px}
 }
-@media(prefers-reduced-motion:reduce){.serpent-art-frame{will-change:auto}.serpent-portrait,.serpent-3d-stage .serpent-art-frame>img{transition:none}}
+@media(prefers-reduced-motion:reduce){.serpent-portrait,.serpent-3d-stage .serpent-art-frame>img{transition:none}}

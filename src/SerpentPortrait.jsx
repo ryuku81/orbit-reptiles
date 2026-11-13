@@ -1,128 +1,86 @@
 import { useEffect, useRef } from 'react';
-import * as THREE from 'three';
-import { createSerpentPortraitGeometry, serpentPortraitVertex, serpentPortraitFragment } from './serpent-portrait-morph.js';
+import { SEQUENCE, sequencePosition, frameRect } from './serpent-sequence.js';
 
-const valueOf = progress => Math.max(0, Math.min(1, typeof progress === 'number' ? progress : progress?.get?.() || 0));
+const valueOf = p => typeof p === 'number' ? p : p?.get?.() ?? 0;
 
-/** Articulates the original illustration; no replacement animal or 3D asset. */
+/** Scrub the user's actual contact-sheet artwork. This is an image sequence, not a 3D replacement. */
 export default function SerpentPortrait({ progress, paused = false, reduced = false, onReady, className = '' }) {
   const host = useRef(null), state = useRef({}), refresh = useRef(null);
   state.current = { progress, paused, reduced, onReady };
-  useEffect(() => { refresh.current?.(); }, [progress, paused, reduced, onReady]);
-
+  useEffect(() => { refresh.current?.(); }, [paused, reduced, onReady]);
   useEffect(() => {
-    const element = host.current, media = matchMedia('(prefers-reduced-motion: reduce)');
-    let renderer, disposed = false, failed = false, loaded = false, visible = true, raf = 0;
-    let renderedProgress = 0, announced = false, dirty = true;
-    let elapsed = 0, lastClock = 0, lastRender = 0, frameCount = 0, wasActive = false;
-    const fail = () => {
-      if (disposed || failed) return;
-      failed = true; cancelAnimationFrame(raf); raf = 0;
-      element.dataset.ready = 'false'; element.dataset.renderState = 'fallback';
-      if (renderer) renderer.domElement.style.opacity = '0';
-      state.current.onReady?.(false);
-    };
-    try { renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false, powerPreference: 'low-power' }); }
-    catch { fail(); return; }
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    // These illustration pixels already contain their final lighting and colour.
-    renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
-    renderer.domElement.setAttribute('aria-hidden', 'true');
-    renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;opacity:0';
-    element.appendChild(renderer.domElement);
-
-    const uniforms = {
-      artwork: { value: null }, strikeArtwork: { value: null }, opening: { value: 0 },
-      time: { value: 0 }, vitality: { value: 1 },
-    };
-    const material = new THREE.ShaderMaterial({
-      uniforms, vertexShader: serpentPortraitVertex, fragmentShader: serpentPortraitFragment,
-      depthTest: false, depthWrite: false, side: THREE.DoubleSide, transparent: true, premultipliedAlpha: true,
-    });
-    const geometry = createSerpentPortraitGeometry(), scene = new THREE.Scene(), camera = new THREE.Camera();
-    scene.add(new THREE.Mesh(geometry, material));
+    const element = host.current, canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) { state.current.onReady?.(false); return; }
+    canvas.setAttribute('aria-hidden', 'true');
+    element.appendChild(canvas);
+    const media = matchMedia('(prefers-reduced-motion: reduce)'), atlas = new Image();
+    let disposed = false, loaded = false, raf = 0, visible = true, position = 0, draws = 0;
+    let lastPosition = -1, dirty = true;
     const isReduced = () => state.current.reduced || media.matches;
-    const isVisible = () => visible && !document.hidden;
-    const isActive = () => isVisible() && !state.current.paused && !isReduced();
-    const request = () => {
-      if (!disposed && !failed && loaded && isVisible() && !raf) raf = requestAnimationFrame(draw);
-    };
-    function draw(now) {
-      raf = 0;
-      if (disposed || failed || !loaded || !isVisible()) return;
-      const active = isActive();
-      if (!active) lastClock = 0;
-      if (!dirty && !active) return;
-      // Idle movement renders at 30fps; scroll changes can render at 60fps so
-      // the jaw follows the stage without overworking high-refresh displays.
-      if (active && now - lastRender < 1000 / (dirty ? 60 : 30) - 1) { request(); return; }
-      if (active) {
-        if (lastClock) elapsed += Math.min(.05, Math.max(0, (now - lastClock) / 1000));
-        lastClock = now;
-      }
-      if (isReduced()) renderedProgress = 0;
-      else if (!state.current.paused) renderedProgress = valueOf(state.current.progress);
-      const opening = THREE.MathUtils.smoothstep(renderedProgress, .16, .52);
-      uniforms.opening.value = opening;
-      uniforms.time.value = isReduced() ? 0 : elapsed;
-      uniforms.vitality.value = isReduced() ? 0 : 1;
-      renderer.render(scene, camera);
-      lastRender = now; frameCount++;
-      element.dataset.ready = 'true'; element.dataset.progress = renderedProgress.toFixed(4);
-      element.dataset.jawOpen = opening.toFixed(4);
-      element.dataset.livingTime = uniforms.time.value.toFixed(3);
-      element.dataset.frame = String(frameCount);
-      element.dataset.vitality = String(uniforms.vitality.value);
-      element.dataset.phase = opening === 0 ? 'rest' : opening < 1 ? 'opening' : 'strike';
-      element.dataset.renderState = isReduced() ? 'reduced' : state.current.paused ? 'paused' : 'running';
-      renderer.domElement.style.opacity = '1'; dirty = false;
-      if (!announced) { announced = true; state.current.onReady?.(true); }
-      if (active) request();
+    function request() {
+      if (!disposed && loaded && visible && !document.hidden && !raf) raf = requestAnimationFrame(draw);
     }
-    const wake = () => {
-      const active = isActive();
-      if (active !== wasActive) lastClock = 0;
-      wasActive = active; dirty = true; request();
-    };
-    const visibility = () => {
-      if (!isVisible()) {
-        cancelAnimationFrame(raf); raf = 0; lastClock = 0; wasActive = false;
-        element.dataset.renderState = 'hidden';
+    function draw() {
+      raf = 0;
+      if (disposed || !loaded || !visible || document.hidden) return;
+      if (isReduced()) position = 0;
+      else if (!state.current.paused) position = sequencePosition(valueOf(state.current.progress));
+      if (!dirty && Math.abs(position - lastPosition) < .001) return;
+      const lower = Math.floor(position), upper = Math.min(lower + 1, SEQUENCE.count - 1), mix = position - lower;
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.imageSmoothingEnabled = true; context.imageSmoothingQuality = 'high';
+      context.globalAlpha = 1;
+      context.drawImage(atlas, ...frameRect(lower), 0, 0, canvas.width, canvas.height);
+      // Blend neighboring source poses to avoid hard stepping on slow scroll.
+      if (mix > 0) {
+        context.globalAlpha = mix;
+        context.drawImage(atlas, ...frameRect(upper), 0, 0, canvas.width, canvas.height);
       }
-      else wake();
-    };
+      context.globalAlpha = 1;
+      lastPosition = position; dirty = false;
+      element.dataset.frame = String(lower + 1);
+      element.dataset.blend = mix.toFixed(3);
+      element.dataset.progress = (position / (SEQUENCE.count - 1)).toFixed(4);
+      element.dataset.draws = String(++draws);
+      element.dataset.phase = lower < 42 ? 'rest' : lower < 84 ? 'opening' : 'strike';
+      element.dataset.renderState = isReduced() ? 'reduced' : state.current.paused ? 'paused' : 'running';
+      if (element.dataset.ready !== 'true') {
+        element.dataset.ready = 'true'; state.current.onReady?.(true);
+      }
+    }
+    const wake = () => { dirty = true; request(); };
     refresh.current = wake;
     const unsubscribe = typeof progress?.on === 'function' ? progress.on('change', () => {
-      if (!state.current.paused && !isReduced()) wake();
+      if (!state.current.paused && !isReduced()) request();
     }) : null;
-    const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; visibility(); });
+    const observer = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      if (visible) wake(); else { cancelAnimationFrame(raf); raf = 0; }
+    });
     observer.observe(element);
     const resize = new ResizeObserver(() => {
-      const width = Math.max(1, element.clientWidth), height = Math.max(1, element.clientHeight);
-      // Retain the source's full detail when the outer stage zooms a small mobile frame.
-      const resolution = Math.max(1, 1536 / (width * renderer.getPixelRatio()), 1024 / (height * renderer.getPixelRatio()));
-      renderer.setSize(Math.round(width * resolution), Math.round(height * resolution), false);
+      const ratio = Math.min(devicePixelRatio || 1, 2);
+      canvas.width = Math.max(1, Math.round(element.clientWidth * ratio));
+      canvas.height = Math.max(1, Math.round(element.clientHeight * ratio));
       wake();
     });
     resize.observe(element);
+    const visibility = () => {
+      if (document.hidden) { cancelAnimationFrame(raf); raf = 0; }
+      else wake();
+    };
     document.addEventListener('visibilitychange', visibility); media.addEventListener('change', wake);
-    const contextLost = event => { event.preventDefault(); fail(); };
-    renderer.domElement.addEventListener('webglcontextlost', contextLost);
-    const loader = new THREE.TextureLoader();
-    let count = 0;
-    const complete = () => { if (!disposed && ++count === 2) { loaded = true; wake(); } };
-    const texture = loader.load('/images/celestial-serpent.webp', complete, undefined, fail);
-    const strikeTexture = loader.load('/images/celestial-serpent-strike.png', complete, undefined, fail);
-    uniforms.artwork.value = texture; uniforms.strikeArtwork.value = strikeTexture;
-
+    atlas.onload = () => { if (!disposed) { loaded = true; wake(); } };
+    atlas.onerror = () => {
+      if (!disposed) { element.dataset.ready = 'false'; element.dataset.renderState = 'fallback'; state.current.onReady?.(false); }
+    };
+    atlas.src = '/images/serpent-sequence/atlas.webp';
     return () => {
-      disposed = true; cancelAnimationFrame(raf); unsubscribe?.(); observer.disconnect(); resize.disconnect();
+      disposed = true; cancelAnimationFrame(raf); unsubscribe?.(); resize.disconnect(); observer.disconnect();
       document.removeEventListener('visibilitychange', visibility); media.removeEventListener('change', wake);
-      renderer.domElement.removeEventListener('webglcontextlost', contextLost); refresh.current = null;
-      texture.dispose(); strikeTexture.dispose(); geometry.dispose(); material.dispose(); renderer.dispose();
-      renderer.forceContextLoss(); renderer.domElement.remove();
+      atlas.onload = null; atlas.onerror = null; canvas.remove(); refresh.current = null;
     };
   }, [progress]);
-
-  return <div ref={host} className={`serpent-portrait-renderer ${className}`} data-ready="false" data-phase="rest" aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />;
+  return <div ref={host} className={`serpent-portrait-renderer ${className}`} data-ready="false" data-sequence-length={SEQUENCE.count} aria-hidden="true" />;
 }
